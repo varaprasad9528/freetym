@@ -1,20 +1,16 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
-// Confirmation Modal as a Popup
-function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
+function ConfirmationPopup({ email, onVerify, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div className="bg-[#FFF8F0] rounded-xl p-8 shadow-xl w-full max-w-md flex flex-col items-center relative">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl"
         >
           ×
         </button>
-        {/* Single Circle + Check SVG */}
         <div className="mb-6 mt-2">
           <svg width="60" height="60" fill="none" viewBox="0 0 60 60">
             <circle
@@ -50,56 +46,39 @@ function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
             className="text-[#3A36DB] underline font-semibold"
             onClick={(e) => {
               e.preventDefault();
-              onVerify(); // THIS is what triggers the account added UI
+              onVerify();
             }}
           >
             click on the verification link
           </a>{" "}
           in your email to activate your account
         </p>
-        <button
-          className="bg-[#3A36DB] hover:bg-[#2B2ACF] text-white px-8 py-2 rounded-md font-semibold transition"
-          onClick={onResend}
-        >
-          RESEND EMAIL
-        </button>
       </div>
     </div>
   );
 }
 
-export default function InfluencerDashboard() {
+export default function Page() {
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [account, setAccount] = useState("");
+  const [accountAdded, setAccountAdded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [accountAdded, setAccountAdded] = useState(false); // <<--- NEW
 
   const mockEmail = "userid@email.com";
   const mockUserId = "Userid";
-  const router = useRouter();
 
-  const handleContinue = () => {
-    if (!selectedPlatform) return;
-    router.push(
-      `/signup/influencer/dashboard/report?platform=${selectedPlatform.toLowerCase()}`
-    );
-  };
-
-  // Simulate account selection (when anything is typed, popup appears)
   const handleAccountSelect = (e) => {
     setAccount(e.target.value);
     if (e.target.value.trim()) {
-      setTimeout(() => setShowConfirm(true), 500);
+      setTimeout(() => setShowConfirm(true), 400);
     }
   };
 
-  // When the user "verifies" email (clicks verification link)
   const handleVerify = () => {
     setShowConfirm(false);
-    setAccountAdded(true); // <<--- Set account as added!
+    setAccountAdded(true);
   };
 
-  // Remove account handler
   const handleRemoveAccount = () => {
     setAccountAdded(false);
     setAccount("");
@@ -108,11 +87,9 @@ export default function InfluencerDashboard() {
 
   return (
     <div className="bg-[#FFF8F0] w-full min-h-screen">
-      {/* Top Header */}
       <header className="h-14 bg-black text-white flex items-center justify-center text-sm font-semibold">
         Content Goes Here (if any)
       </header>
-      {/* Inner Content */}
       <main className="p-12">
         <h2 className="text-xl font-semibold mb-2">
           Let’s add your account(s)
@@ -121,14 +98,12 @@ export default function InfluencerDashboard() {
           We need this information to review your account and generate your
           initial insights.
         </p>
-
-        {/* Choose platform */}
         <div className="mb-6">
           <p className="text-sm font-medium mb-4">Choose your platform</p>
           <div className="flex gap-6">
             {/* Instagram */}
             <div
-              onClick={() => setSelectedPlatform("Instagram")}
+              onClick={() => !accountAdded && setSelectedPlatform("Instagram")}
               className="relative cursor-pointer transition"
               style={{
                 width: "258px",
@@ -136,27 +111,37 @@ export default function InfluencerDashboard() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "transparent",
-                opacity: selectedPlatform === "Instagram" ? 1 : 0.8,
+                background: "#fff",
+                borderRadius: "20px",
+                border:
+                  selectedPlatform === "Instagram"
+                    ? "2px solid #222"
+                    : "1px solid #bbb",
+                boxShadow:
+                  selectedPlatform === "Instagram" ? "0 0 0 2px #eee" : "none",
+                opacity: selectedPlatform === "Instagram" ? 1 : 0.93,
+                pointerEvents: accountAdded ? "none" : "auto",
+                position: "relative",
               }}
             >
               <img
                 src="/insta.svg"
                 alt="Instagram"
-                style={{ width: "258px", height: "82px" }}
+                style={{ width: "30px", height: "30px", marginRight: 14 }}
               />
+              <span style={{ fontWeight: 500, fontSize: 28 }}>Instagram</span>
               {selectedPlatform === "Instagram" && (
                 <span
                   style={{
                     position: "absolute",
-                    top: "8px",
-                    right: "8px",
+                    top: "10px",
+                    right: "14px",
                     zIndex: 2,
                   }}
                 >
                   <svg
-                    width="20"
-                    height="20"
+                    width="24"
+                    height="24"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="#08D948"
@@ -164,9 +149,9 @@ export default function InfluencerDashboard() {
                     <circle
                       cx="12"
                       cy="12"
-                      r="10"
+                      r="11"
                       strokeWidth="2"
-                      fill="white"
+                      fill="#fff"
                     />
                     <path
                       strokeLinecap="round"
@@ -178,10 +163,9 @@ export default function InfluencerDashboard() {
                 </span>
               )}
             </div>
-
             {/* YouTube */}
             <div
-              onClick={() => setSelectedPlatform("YouTube")}
+              onClick={() => !accountAdded && setSelectedPlatform("YouTube")}
               className="relative cursor-pointer transition"
               style={{
                 width: "258px",
@@ -189,27 +173,37 @@ export default function InfluencerDashboard() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: "transparent",
-                opacity: selectedPlatform === "YouTube" ? 1 : 0.8,
+                background: "#fff",
+                borderRadius: "20px",
+                border:
+                  selectedPlatform === "YouTube"
+                    ? "2px solid #222"
+                    : "1px solid #bbb",
+                boxShadow:
+                  selectedPlatform === "YouTube" ? "0 0 0 2px #eee" : "none",
+                opacity: selectedPlatform === "YouTube" ? 1 : 0.93,
+                pointerEvents: accountAdded ? "none" : "auto",
+                position: "relative",
               }}
             >
               <img
                 src="/youtube.svg"
                 alt="YouTube"
-                style={{ width: "258px", height: "82px" }}
+                style={{ width: "30px", height: "30px", marginRight: 14 }}
               />
+              <span style={{ fontWeight: 500, fontSize: 28 }}>Youtube</span>
               {selectedPlatform === "YouTube" && (
                 <span
                   style={{
                     position: "absolute",
-                    top: "8px",
-                    right: "8px",
+                    top: "10px",
+                    right: "14px",
                     zIndex: 2,
                   }}
                 >
                   <svg
-                    width="20"
-                    height="20"
+                    width="24"
+                    height="24"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="#08D948"
@@ -217,9 +211,9 @@ export default function InfluencerDashboard() {
                     <circle
                       cx="12"
                       cy="12"
-                      r="10"
+                      r="11"
                       strokeWidth="2"
-                      fill="white"
+                      fill="#fff"
                     />
                     <path
                       strokeLinecap="round"
@@ -233,8 +227,6 @@ export default function InfluencerDashboard() {
             </div>
           </div>
         </div>
-
-        {/* Show account selection only after platform picked and NOT added */}
         {selectedPlatform && !accountAdded && (
           <div className="mt-4">
             <label className="block text-sm font-medium mb-2">
@@ -252,46 +244,68 @@ export default function InfluencerDashboard() {
             </div>
           </div>
         )}
-
-        {/* After account is added, show My Accounts */}
         {accountAdded && (
-          <>
-            <div className="mt-6">
-              <label className="block text-sm font-medium mb-2">
-                My accounts
-              </label>
-              <div className="flex items-center bg-[#F7F7F7] rounded-lg px-4 py-2 border max-w-md">
-                <span className="mr-3 text-2xl">👤</span>
-                <span className="flex-1 text-gray-800 font-medium">
-                  {mockUserId}
-                </span>
-                <button
-                  className="ml-3 text-gray-400 hover:text-red-500 text-lg"
-                  title="Remove account"
-                  onClick={handleRemoveAccount}
+          <div className="mt-6 flex flex-col items-start max-w-md w-full mx-auto">
+            <label className="block text-sm font-medium mb-2">
+              My accounts
+            </label>
+            <div className="flex items-center bg-[#F7F7F7] rounded-lg px-4 py-2 border w-full mb-6">
+              {/* User Icon */}
+              <span className="mr-3 text-xl text-[#5F3DC4] flex items-center">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
                 >
-                  🗑
-                </button>
-              </div>
+                  <path d="M12 12c2.7 0 4.5-1.8 4.5-4.5S14.7 3 12 3 7.5 4.8 7.5 7.5 9.3 12 12 12Zm0 2c-3 0-9 1.5-9 4.5V21h18v-2.5c0-3-6-4.5-9-4.5Z" />
+                </svg>
+              </span>
+              <span className="flex-1 text-gray-800 font-medium">
+                {mockUserId}
+              </span>
+              <button
+                className="ml-3 text-gray-400 hover:text-red-500 flex items-center"
+                title="Remove account"
+                onClick={handleRemoveAccount}
+              >
+                {/* Delete Icon (SVG) */}
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <rect
+                    x="9"
+                    y="9"
+                    width="6"
+                    height="8"
+                    rx="1"
+                    strokeWidth="1.6"
+                  />
+                  <path d="M10 6h4m-8 2h12M17 6v2M7 6v2" strokeWidth="1.6" />
+                </svg>
+              </button>
             </div>
-            <button
-              className="bg-[#3A36DB] hover:bg-[#2B2ACF] text-white py-3 rounded-md font-semibold text-lg transition"
-              style={{ width: "250px", marginLeft: "90px" }} // keep any style you had
-              onClick={handleContinue}
-            >
-              Continue
-            </button>
-          </>
+            <div className="flex w-full">
+              <div style={{ width: "90px" }} />
+              <button
+                className="bg-[#3A36DB] hover:bg-[#2B2ACF] text-white py-3 rounded-md font-semibold text-lg transition"
+                style={{ width: "250px" }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         )}
       </main>
-
-      {/* Confirmation Modal */}
       {showConfirm && (
         <ConfirmationPopup
           email={mockEmail}
-          onVerify={handleVerify} // Pass this!
+          onVerify={handleVerify}
           onClose={() => setShowConfirm(false)}
-          onResend={() => alert("Resent (mock)!")}
         />
       )}
     </div>
