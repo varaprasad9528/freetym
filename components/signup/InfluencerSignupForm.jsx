@@ -1,6 +1,54 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+// OTP Popup Component
+function OtpPopup({
+  open,
+  onClose,
+  onVerify,
+  otp,
+  setOtp,
+  timer,
+  onResend,
+  type,
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+        <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
+        <input
+          type="text"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          className="w-full border rounded px-3 py-2 mb-4"
+          placeholder="Enter OTP"
+        />
+        <div className="flex justify-between items-center mb-4">
+          <button
+            className="bg-blue-600 text-white px-4 py-1 rounded"
+            onClick={onVerify}
+          >
+            Verify
+          </button>
+          <button className="text-gray-500 underline" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+        <div className="text-sm text-gray-700 flex items-center justify-between">
+          {timer > 0 ? (
+            <span>Resend in {timer}s</span>
+          ) : (
+            <button className="text-blue-600 underline" onClick={onResend}>
+              Resend OTP
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function InfluencerSignupForm() {
   const [form, setForm] = useState({
@@ -14,9 +62,21 @@ export default function InfluencerSignupForm() {
     termsAccepted: false,
     password: "",
     confirmPassword: "",
+    emailOtp: "",
+    phoneOtp: "",
   });
 
   const [errors, setErrors] = useState({});
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
+  const [phoneOtpVerified, setPhoneOtpVerified] = useState(false);
+
+  const [showEmailOtpPopup, setShowEmailOtpPopup] = useState(false);
+  const [showPhoneOtpPopup, setShowPhoneOtpPopup] = useState(false);
+  const [emailOtpTimer, setEmailOtpTimer] = useState(0);
+  const [phoneOtpTimer, setPhoneOtpTimer] = useState(0);
+
   const router = useRouter();
 
   const genders = ["Male", "Female", "Other"];
@@ -31,6 +91,118 @@ export default function InfluencerSignupForm() {
     }));
   };
 
+  // Timer logic for email OTP
+  useEffect(() => {
+    let interval = null;
+    if (showEmailOtpPopup && emailOtpTimer > 0) {
+      interval = setInterval(() => setEmailOtpTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showEmailOtpPopup, emailOtpTimer]);
+
+  // Timer logic for phone OTP
+  useEffect(() => {
+    let interval = null;
+    if (showPhoneOtpPopup && phoneOtpTimer > 0) {
+      interval = setInterval(() => setPhoneOtpTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showPhoneOtpPopup, phoneOtpTimer]);
+
+  // 1. Send Email OTP
+  const sendEmailOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.fullName,
+          email: form.email,
+          role: "influencer",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send email OTP");
+      setEmailOtpSent(true);
+      setShowEmailOtpPopup(true);
+      setEmailOtpTimer(60);
+      alert("Email OTP sent!");
+    } catch (err) {
+      alert("Error sending email OTP");
+    }
+  };
+
+  // 2. Resend Email OTP
+  const resendEmailOtp = async () => {
+    await sendEmailOtp();
+  };
+
+  // 3. Send Phone OTP
+  const sendPhoneOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: form.phone,
+          email: form.email,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send phone OTP");
+      setPhoneOtpSent(true);
+      setShowPhoneOtpPopup(true);
+      setPhoneOtpTimer(60);
+      alert("Phone OTP sent!");
+    } catch (err) {
+      alert("Error sending phone OTP");
+    }
+  };
+
+  // 4. Resend Phone OTP
+  const resendPhoneOtp = async () => {
+    await sendPhoneOtp();
+  };
+
+  // 5. Verify Email OTP
+  const verifyEmailOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          otp: form.emailOtp,
+        }),
+      });
+      if (!res.ok) throw new Error("Invalid OTP");
+      setEmailOtpVerified(true);
+      setShowEmailOtpPopup(false);
+      alert("Email verified!");
+    } catch (err) {
+      alert("Invalid Email OTP");
+    }
+  };
+
+  // 6. Verify Phone OTP
+  const verifyPhoneOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/phone/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: form.phone,
+          otp: form.phoneOtp,
+        }),
+      });
+      if (!res.ok) throw new Error("Invalid OTP");
+      setPhoneOtpVerified(true);
+      setShowPhoneOtpPopup(false);
+      alert("Phone verified!");
+    } catch (err) {
+      alert("Invalid Phone OTP");
+    }
+  };
+
+  // Registration validation and submit
   const validate = () => {
     let errs = {};
     if (!form.fullName) errs.fullName = "Full Name is required";
@@ -41,32 +213,48 @@ export default function InfluencerSignupForm() {
     if (!form.location) errs.location = "Location is required";
     if (!form.language) errs.language = "Language is required";
     if (!form.termsAccepted) errs.termsAccepted = "You must accept the terms";
-
-    //  Password validations
     if (!form.password) {
       errs.password = "Password is required";
     } else if (form.password.length < 6) {
       errs.password = "Password must be at least 6 characters";
     }
-
     if (!form.confirmPassword) {
       errs.confirmPassword = "Please confirm your password";
     } else if (form.password !== form.confirmPassword) {
       errs.confirmPassword = "Passwords do not match";
     }
-
+    // OTP verification checks
+    if (!emailOtpVerified) errs.emailOtp = "Please verify your email OTP";
+    if (!phoneOtpVerified) errs.phoneOtp = "Please verify your phone OTP";
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  // 7. Complete Registration (Influencer)
+  const completeRegistration = async () => {
+    try {
+      const res = await fetch("/api/auth/register/influencer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+        }),
+      });
+      if (!res.ok) throw new Error("Registration failed");
+      alert("Registration successful!");
+      router.push("/dashboard/influencer");
+    } catch (err) {
+      alert("Registration failed");
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
     } else {
       setErrors({});
-      // Simulate successful submission
-      router.push("/dashboard/influencer");
+      await completeRegistration();
     }
   };
 
@@ -93,6 +281,7 @@ export default function InfluencerSignupForm() {
           <p className="text-red-500 text-sm mb-2">{errors.fullName}</p>
         )}
 
+        {/* Email with OTP */}
         <div className="flex gap-2 mb-4">
           <div className="flex w-full border rounded-[10px] overflow-hidden">
             <input
@@ -102,16 +291,30 @@ export default function InfluencerSignupForm() {
               onChange={handleChange}
               placeholder="Email"
               className="flex-grow h-9 px-3 text-sm border-none focus:outline-none"
+              disabled={emailOtpVerified}
             />
-            <button type="button" className="bg-gray-200 px-3 text-sm">
-              Get OTP
+            <button
+              type="button"
+              className="bg-gray-200 px-3 text-sm"
+              onClick={sendEmailOtp}
+              disabled={emailOtpSent || emailOtpVerified}
+            >
+              {emailOtpVerified
+                ? "Verified"
+                : emailOtpSent
+                ? "Sent"
+                : "Get OTP"}
             </button>
           </div>
         </div>
         {errors.email && (
           <p className="text-red-500 text-sm mb-2">{errors.email}</p>
         )}
+        {errors.emailOtp && (
+          <p className="text-red-500 text-sm mb-2">{errors.emailOtp}</p>
+        )}
 
+        {/* Phone with OTP */}
         <div className="flex gap-2 mb-4">
           <div className="flex w-full border rounded-[10px] overflow-hidden">
             <input
@@ -121,15 +324,50 @@ export default function InfluencerSignupForm() {
               onChange={handleChange}
               placeholder="Phone Number"
               className="flex-grow h-9 px-3 text-sm border-none focus:outline-none"
+              disabled={phoneOtpVerified}
             />
-            <button type="button" className="bg-gray-200 px-3 text-sm">
-              Get OTP
+            <button
+              type="button"
+              className="bg-gray-200 px-3 text-sm"
+              onClick={sendPhoneOtp}
+              disabled={phoneOtpSent || phoneOtpVerified}
+            >
+              {phoneOtpVerified
+                ? "Verified"
+                : phoneOtpSent
+                ? "Sent"
+                : "Get OTP"}
             </button>
           </div>
         </div>
         {errors.phone && (
           <p className="text-red-500 text-sm mb-2">{errors.phone}</p>
         )}
+        {errors.phoneOtp && (
+          <p className="text-red-500 text-sm mb-2">{errors.phoneOtp}</p>
+        )}
+
+        {/* OTP Popups */}
+        <OtpPopup
+          open={showEmailOtpPopup}
+          onClose={() => setShowEmailOtpPopup(false)}
+          onVerify={verifyEmailOtp}
+          otp={form.emailOtp}
+          setOtp={(otp) => setForm((f) => ({ ...f, emailOtp: otp }))}
+          timer={emailOtpTimer}
+          onResend={resendEmailOtp}
+          type="Email"
+        />
+        <OtpPopup
+          open={showPhoneOtpPopup}
+          onClose={() => setShowPhoneOtpPopup(false)}
+          onVerify={verifyPhoneOtp}
+          otp={form.phoneOtp}
+          setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
+          timer={phoneOtpTimer}
+          onResend={resendPhoneOtp}
+          type="Phone"
+        />
 
         <div className="flex gap-4 mb-4">
           <select

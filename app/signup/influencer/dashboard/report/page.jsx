@@ -58,10 +58,12 @@ export default function ReportPage() {
 
   return (
     <div className="p-8 bg-[#FFF8F0] min-h-screen">
-      <h2 className="text-xl font-semibold mb-4">
-        Welcome, <b>User!</b> Let’s accelerate your income and growth starting
-        today.
-      </h2>
+      <div className="bg-white border-b border-black py-2">
+        <h2 className="text-base font-semibold m-0 p-0 pl-6">
+          Welcome, <b>User!</b> Let’s accelerate your income and growth starting
+          today.
+        </h2>
+      </div>
 
       {/* Top bar: User, platform, add account */}
       <div className="flex items-center gap-5 mb-6">

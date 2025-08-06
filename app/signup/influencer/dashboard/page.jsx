@@ -255,33 +255,50 @@ export default function InfluencerDashboard() {
 
         {/* After account is added, show My Accounts */}
         {accountAdded && (
-          <>
-            <div className="mt-6">
-              <label className="block text-sm font-medium mb-2">
-                My accounts
-              </label>
-              <div className="flex items-center bg-[#F7F7F7] rounded-lg px-4 py-2 border max-w-md">
-                <span className="mr-3 text-2xl">👤</span>
-                <span className="flex-1 text-gray-800 font-medium">
-                  {mockUserId}
-                </span>
-                <button
-                  className="ml-3 text-gray-400 hover:text-red-500 text-lg"
-                  title="Remove account"
-                  onClick={handleRemoveAccount}
+          <div className="w-[330px] ml-2">
+            <div className="flex items-center bg-[#F7F7F7] rounded-lg px-4 py-2 border w-full">
+              <span className="mr-3">
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
                 >
-                  🗑
-                </button>
-              </div>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-3.31 3.134-6 7-6s7 2.69 7 6" />
+                </svg>
+              </span>
+              <span className="flex-1 text-gray-800 font-medium text-base text-left">
+                {mockUserId}
+              </span>
+              <button
+                className="ml-3 text-gray-400 hover:text-red-500"
+                title="Remove account"
+                onClick={handleRemoveAccount}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a2 2 0 00-2-2h-2a2 2 0 00-2 2v3m5 0H6"
+                  />
+                </svg>
+              </button>
             </div>
             <button
-              className="bg-[#3A36DB] hover:bg-[#2B2ACF] text-white py-3 rounded-md font-semibold text-lg transition"
-              style={{ width: "250px", marginLeft: "90px" }} // keep any style you had
+              className="w-full bg-[#3A36DB] hover:bg-[#2B2ACF] text-white py-2 rounded-md font-semibold text-lg transition mt-6"
               onClick={handleContinue}
             >
               Continue
             </button>
-          </>
+          </div>
         )}
       </main>
 
@@ -289,7 +306,7 @@ export default function InfluencerDashboard() {
       {showConfirm && (
         <ConfirmationPopup
           email={mockEmail}
-          onVerify={handleVerify} // Pass this!
+          onVerify={handleVerify}
           onClose={() => setShowConfirm(false)}
           onResend={() => alert("Resent (mock)!")}
         />

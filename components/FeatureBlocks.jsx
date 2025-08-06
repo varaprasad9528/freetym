@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Search,
   LineChart,
@@ -86,7 +88,25 @@ export default function FeatureBlocks() {
 
             <p className="text-gray-600 mb-3">{feature.description}</p>
 
-            <button className="bg-blue-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors mb-3 hover:bg-white hover:text-blue-700 border border-blue-700">
+            <button
+              className="bg-blue-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors mb-3 hover:bg-white hover:text-blue-700 border border-blue-700"
+              onClick={
+                index === 0
+                  ? () => {
+                      // Scroll to the hero section (showing the full orange box/image)
+                      const hero = document.getElementById("hero-section");
+                      if (hero) hero.scrollIntoView({ behavior: "smooth" });
+                      setTimeout(() => {
+                        // Then focus the search input
+                        const input = document.getElementById(
+                          "influencer-search-input"
+                        );
+                        if (input) input.focus();
+                      }, 600); // 600ms for smooth scroll, tweak as needed
+                    }
+                  : undefined
+              }
+            >
               {feature.buttonText}
             </button>
 
