@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AgencySignupPage() {
   const [form, setForm] = useState({
@@ -12,12 +13,42 @@ export default function AgencySignupPage() {
     termsAccepted: false,
     password: "",
     confirmPassword: "",
+    emailOtp: "",
+    phoneOtp: "",
   });
 
   const [errors, setErrors] = useState({});
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
+  const [phoneOtpVerified, setPhoneOtpVerified] = useState(false);
+  const [showEmailOtpPopup, setShowEmailOtpPopup] = useState(false);
+  const [showPhoneOtpPopup, setShowPhoneOtpPopup] = useState(false);
+  const [emailOtpTimer, setEmailOtpTimer] = useState(0);
+  const [phoneOtpTimer, setPhoneOtpTimer] = useState(0);
+
+  const router = useRouter();
 
   const industryTypes = ["Fashion", "Technology", "Fitness", "Beauty"];
   const locations = ["Delhi", "Mumbai", "Bangalore", "Hyderabad"];
+
+  // Timer logic for email OTP
+  useEffect(() => {
+    let interval = null;
+    if (showEmailOtpPopup && emailOtpTimer > 0) {
+      interval = setInterval(() => setEmailOtpTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showEmailOtpPopup, emailOtpTimer]);
+
+  // Timer logic for phone OTP
+  useEffect(() => {
+    let interval = null;
+    if (showPhoneOtpPopup && phoneOtpTimer > 0) {
+      interval = setInterval(() => setPhoneOtpTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showPhoneOtpPopup, phoneOtpTimer]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -25,6 +56,99 @@ export default function AgencySignupPage() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  // Send Email OTP
+  const sendEmailOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.fullName,
+          email: form.email,
+          role: "brand",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send email OTP");
+      setEmailOtpSent(true);
+      setShowEmailOtpPopup(true);
+      setEmailOtpTimer(60);
+      alert("Email OTP sent!");
+    } catch (err) {
+      alert("Error sending email OTP");
+    }
+  };
+
+  // Resend Email OTP
+  const resendEmailOtp = async () => {
+    await sendEmailOtp();
+  };
+
+  // Send Phone OTP
+  const sendPhoneOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: form.phone,
+          email: form.email,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send phone OTP");
+      setPhoneOtpSent(true);
+      setShowPhoneOtpPopup(true);
+      setPhoneOtpTimer(60);
+      alert("Phone OTP sent!");
+    } catch (err) {
+      alert("Error sending phone OTP");
+    }
+  };
+
+  // Resend Phone OTP
+  const resendPhoneOtp = async () => {
+    await sendPhoneOtp();
+  };
+
+  // Verify Email OTP
+  const verifyEmailOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          otp: form.emailOtp,
+        }),
+      });
+      if (!res.ok) throw new Error("Invalid OTP");
+      setEmailOtpVerified(true);
+      setShowEmailOtpPopup(false);
+      alert("Email verified!");
+    } catch (err) {
+      alert("Invalid Email OTP");
+    }
+  };
+
+  // Verify Phone OTP
+  const verifyPhoneOtp = async () => {
+    try {
+      const res = await fetch("/api/auth/register/phone/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: form.phone,
+          otp: form.phoneOtp,
+        }),
+      });
+      if (!res.ok) throw new Error("Invalid OTP");
+      setPhoneOtpVerified(true);
+      setShowPhoneOtpPopup(false);
+      alert("Phone verified!");
+    } catch (err) {
+      alert("Invalid Phone OTP");
+    }
   };
 
   const validate = () => {
@@ -36,32 +160,97 @@ export default function AgencySignupPage() {
     if (!form.industryType) errs.industryType = "Industry Type is required";
     if (!form.location) errs.location = "Location is required";
     if (!form.termsAccepted) errs.termsAccepted = "Please accept terms";
-
     if (!form.password) {
       errs.password = "Password is required";
     } else if (form.password.length < 6) {
       errs.password = "Password must be at least 6 characters";
     }
-
     if (!form.confirmPassword) {
       errs.confirmPassword = "Please confirm your password";
     } else if (form.password !== form.confirmPassword) {
       errs.confirmPassword = "Passwords do not match";
     }
-
+    if (!emailOtpVerified) errs.emailOtp = "Please verify your email OTP";
+    if (!phoneOtpVerified) errs.phoneOtp = "Please verify your phone OTP";
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  // Final Brand Registration API
+  const completeRegistration = async () => {
+    try {
+      const res = await fetch("/api/auth/register/agency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+        }),
+      });
+      if (!res.ok) throw new Error("Registration failed");
+      alert("Registration successful!");
+      router.push("/dashboard/brand");
+    } catch (err) {
+      alert("Registration failed");
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
     } else {
       setErrors({});
-      alert("Form submitted (mock)");
+      await completeRegistration();
     }
   };
+
+  // OTP Popup Component
+  function OtpPopup({
+    open,
+    onClose,
+    onVerify,
+    otp,
+    setOtp,
+    timer,
+    onResend,
+    type,
+  }) {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+          <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            className="w-full border rounded px-3 py-2 mb-4"
+            placeholder="Enter OTP"
+          />
+          <div className="flex justify-between items-center mb-4">
+            <button
+              className="bg-blue-600 text-white px-4 py-1 rounded"
+              onClick={onVerify}
+            >
+              Verify
+            </button>
+            <button className="text-gray-500 underline" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+          <div className="text-sm text-gray-700 flex items-center justify-between">
+            {timer > 0 ? (
+              <span>Resend in {timer}s</span>
+            ) : (
+              <button className="text-blue-600 underline" onClick={onResend}>
+                Resend OTP
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FFF8F0] px-6 py-8 font-[Poppins]">
@@ -108,14 +297,27 @@ export default function AgencySignupPage() {
                 onChange={handleChange}
                 placeholder="Business mail"
                 className="flex-grow h-8 px-3 text-sm border-none focus:outline-none"
+                disabled={emailOtpVerified}
               />
-              <button type="button" className="bg-gray-200 px-3 text-sm">
-                Get OTP
+              <button
+                type="button"
+                className="bg-gray-200 px-3 text-sm"
+                onClick={sendEmailOtp}
+                disabled={emailOtpSent || emailOtpVerified}
+              >
+                {emailOtpVerified
+                  ? "Verified"
+                  : emailOtpSent
+                  ? "Sent"
+                  : "Get OTP"}
               </button>
             </div>
           </div>
           {errors.email && (
             <p className="text-red-500 text-xs mb-2">{errors.email}</p>
+          )}
+          {errors.emailOtp && (
+            <p className="text-red-500 text-xs mb-2">{errors.emailOtp}</p>
           )}
 
           <div className="flex gap-2 mb-2">
@@ -127,15 +329,50 @@ export default function AgencySignupPage() {
                 onChange={handleChange}
                 placeholder="Phone Number"
                 className="flex-grow h-8 px-3 text-sm border-none focus:outline-none"
+                disabled={phoneOtpVerified}
               />
-              <button type="button" className="bg-gray-200 px-3 text-sm">
-                Get OTP
+              <button
+                type="button"
+                className="bg-gray-200 px-3 text-sm"
+                onClick={sendPhoneOtp}
+                disabled={phoneOtpSent || phoneOtpVerified}
+              >
+                {phoneOtpVerified
+                  ? "Verified"
+                  : phoneOtpSent
+                  ? "Sent"
+                  : "Get OTP"}
               </button>
             </div>
           </div>
           {errors.phone && (
             <p className="text-red-500 text-xs mb-2">{errors.phone}</p>
           )}
+          {errors.phoneOtp && (
+            <p className="text-red-500 text-xs mb-2">{errors.phoneOtp}</p>
+          )}
+
+          {/* OTP Popups */}
+          <OtpPopup
+            open={showEmailOtpPopup}
+            onClose={() => setShowEmailOtpPopup(false)}
+            onVerify={verifyEmailOtp}
+            otp={form.emailOtp}
+            setOtp={(otp) => setForm((f) => ({ ...f, emailOtp: otp }))}
+            timer={emailOtpTimer}
+            onResend={resendEmailOtp}
+            type="Email"
+          />
+          <OtpPopup
+            open={showPhoneOtpPopup}
+            onClose={() => setShowPhoneOtpPopup(false)}
+            onVerify={verifyPhoneOtp}
+            otp={form.phoneOtp}
+            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
+            timer={phoneOtpTimer}
+            onResend={resendPhoneOtp}
+            type="Phone"
+          />
 
           <div className="flex gap-2 mb-2">
             <select

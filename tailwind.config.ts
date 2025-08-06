@@ -11,7 +11,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        poppins: ["Poppins", "sans-serif"], // ✅ Added
+        poppins: ["Poppins", "sans-serif"],
       },
       colors: {
         background: "hsl(var(--background))",

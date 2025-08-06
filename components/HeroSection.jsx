@@ -8,9 +8,34 @@ export default function HeroSection() {
   const [showPlatformDropdown, setShowPlatformDropdown] = useState(false);
   const platformButtonRef = useRef(null);
   const platformDropdownRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
 
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  const categoryList = [
+    "Art & Design",
+    "Beauty & Fashion",
+    "Comedy",
+    "DIY & How-To",
+    "Fitness & Wellness",
+    "Lifestyle & Vlogs",
+    "Motivation",
+    "Travel & Nature",
+    "Business",
+  ];
+
+  const [selectedCategories, setSelectedCategories] = useState([]);
+
+  const toggleCategory = (cat) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const handleSelectAll = () => setSelectedCategories(categoryList);
+  const handleClear = () => setSelectedCategories([]);
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    function handleClickOutside(event) {
       if (
         showPlatformDropdown &&
         platformButtonRef.current &&
@@ -20,13 +45,20 @@ export default function HeroSection() {
       ) {
         setShowPlatformDropdown(false);
       }
-    };
-
+      // Category Dropdown
+      if (
+        showCategoryDropdown &&
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target)
+      ) {
+        setShowCategoryDropdown(false);
+      }
+    }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showPlatformDropdown]);
+  }, [showPlatformDropdown, showCategoryDropdown]);
 
   const platformIcons = {
     Instagram:
@@ -194,21 +226,78 @@ export default function HeroSection() {
             </button>
 
             {/* Filter Icon */}
-            <button className="bg-gray-100 hover:bg-gray-200 p-2 rounded-full ml-2">
-              <svg
-                className="w-5 h-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="relative">
+              <button
+                className="bg-gray-100 hover:bg-gray-200 p-2 rounded-full ml-2"
+                type="button"
+                onClick={() => setShowCategoryDropdown((v) => !v)}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
-                />
-              </svg>
-            </button>
+                {/* SVG filter icon here */}
+                <svg
+                  className="w-5 h-5 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
+                  />
+                </svg>
+              </button>
+
+              {/* Category Dropdown */}
+              {showCategoryDropdown && (
+                <div
+                  ref={categoryDropdownRef}
+                  className="absolute right-18 bottom-[52px] w-44 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                  style={{
+                    fontSize: "13px",
+                    minWidth: 150,
+                    boxShadow: "0px 2px 8px 0px #00000018",
+                    padding: "2px 0",
+                  }}
+                >
+                  <div>
+                    {categoryList.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => toggleCategory(cat)}
+                        className={`w-full text-left px-3 py-1 rounded ${
+                          selectedCategories.includes(cat)
+                            ? "bg-gray-100 font-semibold"
+                            : "hover:bg-gray-50"
+                        }`}
+                        style={{
+                          fontSize: "13px",
+                          padding: "6px 8px",
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center px-2 py-1 border-t border-gray-200 text-xs">
+                    <button
+                      className="text-blue-600 font-medium hover:underline"
+                      style={{ fontSize: "12px" }}
+                      onClick={handleSelectAll}
+                    >
+                      Select All
+                    </button>
+                    <button
+                      className="text-gray-500 hover:underline"
+                      style={{ fontSize: "12px" }}
+                      onClick={handleClear}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

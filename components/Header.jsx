@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import RequestDemoModal from "@/components/RequestDemoModal";
+import LoginModal from "@/components/LoginModal";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+  const [showRequestDemo, setShowRequestDemo] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,7 +32,8 @@ export default function Header() {
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center">
-          <img src="/freeTym_logo.svg" alt="Freetym" className="h-8 w-auto" />
+          <img src="/freetym.svg" alt="Freetym" className="h-8 w-auto mr-0.5" />
+          <img src="/freetym_logo.svg" alt="Freetym" className="h-8 w-auto" />
         </div>
         {/* Navigation */}
         <nav className="hidden md:flex items-center space-x-4 ml-12">
@@ -59,13 +64,19 @@ export default function Header() {
               </button>
             </Link>
             <span className="text-gray-400">|</span>
-            <button className="text-gray-700 hover:underline transition-colors">
+            <button
+              className="text-gray-700 hover:underline transition-colors"
+              onClick={() => setShowLogin(true)}
+            >
               Sign In
             </button>
           </div>
 
           {/* Request Demo Button */}
-          <button className="bg-orange-500 hover:bg-orange-600 text-white hover:text-black px-4 py-2 rounded-full text-sm font-medium transition-colors">
+          <button
+            className="bg-orange-500 hover:bg-orange-600 text-white hover:text-black px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            onClick={() => setShowRequestDemo(true)}
+          >
             Request Demo
           </button>
 
@@ -180,13 +191,24 @@ export default function Header() {
                 Sign Up
               </button>
               <span className="text-gray-400">|</span>
-              <button className="text-gray-700 hover:text-orange-500 transition-colors">
+              <button
+                className="text-gray-700 hover:text-orange-500 transition-colors"
+                onClick={() => {
+                  setShowLogin(true);
+                  setIsMenuOpen(false);
+                }}
+              >
                 Sign In
               </button>
             </div>
           </nav>
         </div>
       )}
+      <RequestDemoModal
+        open={showRequestDemo}
+        onClose={() => setShowRequestDemo(false)}
+      />
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
     </header>
   );
 }
