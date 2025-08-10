@@ -7,55 +7,122 @@ export default function RequestDemoModal({ open, onClose }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    phone: "",
+    phone: "", // store only the 10-digit part here
     role: "",
     company: "",
     message: "",
   });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const handleOverlayClick = (e) => {
-    if (e.target === overlayRef.current) {
-      onClose();
-    }
+    if (e.target === overlayRef.current) onClose?.();
   };
 
   if (!open) return null;
 
+  // Email validator (one '@', no consecutive dots, valid local + domain + TLD)
+  const isValidEmail = (email) => {
+    const str = email.trim();
+    if (!str || str.includes("..")) return false;
+    const parts = str.split("@");
+    if (parts.length !== 2) return false;
+    const [local, domain] = parts;
+    if (!local || !domain) return false;
+    if (!/^[A-Za-z0-9._%+-]+$/.test(local)) return false;
+    if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,24}$/.test(domain)) return false;
+    return true;
+  };
+
   // Validate fields
   const validate = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = "Full Name is required.";
-    if (!form.email.trim()) errs.email = "Email is required.";
-    else if (
-      !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(form.email)
-    )
-      errs.email = "Enter a valid email.";
-    if (!form.phone.trim()) errs.phone = "Phone Number is required.";
-    else if (!/^\d{10}$/.test(form.phone.replace(/\D/g, "")))
-      errs.phone = "Enter a valid 10-digit phone number.";
+    const nameTrim = form.name.trim();
+
+    if (!nameTrim) {
+      errs.name = "Full Name is required.";
+    } else if (!/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(nameTrim)) {
+      errs.name = "Name must contain letters only.";
+    }
+
+    if (!form.email.trim()) {
+      errs.email = "Email is required.";
+    } else if (!isValidEmail(form.email)) {
+      errs.email = "Enter a valid email (e.g., name@company.com).";
+    }
+
+    if (!form.phone.trim()) {
+      errs.phone = "Phone number is required.";
+    } else if (!/^\d{10}$/.test(form.phone)) {
+      errs.phone = "Enter a valid 10-digit number.";
+    }
+
     if (!form.role) errs.role = "Role is required.";
+
     return errs;
   };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setErrors({ ...errors, [e.target.name]: undefined });
+    setServerError("");
   };
 
-  const handleSubmit = (e) => {
+  // Keep only digits; show last 10; user types without +91 (we render +91 prefix in UI)
+  const handlePhoneChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(-10);
+    setForm({ ...form, phone: digits });
+    setErrors({ ...errors, phone: undefined });
+    setServerError("");
+  };
+
+  const ENDPOINT = "/demo-requests";
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
+
     setSubmitting(true);
-    // Simulate async submit, replace with actual API call if needed
-    setTimeout(() => {
-      setSubmitting(false);
-      onClose();
+    setServerError("");
+
+    try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        // Submit with +91 prefix as requested
+        phone: `+91${form.phone}`,
+        company: form.company.trim(),
+        role: form.role, // "brand" | "influencer" | "other"
+        message: form.message.trim(),
+      };
+
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        /* ignore */
+      }
+
+      if (!res.ok || (data && data.success === false)) {
+        const msg =
+          (data && (data.message || data.error)) ||
+          `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      // Success → close & reset
+      onClose?.();
       setForm({
         name: "",
         email: "",
@@ -64,7 +131,11 @@ export default function RequestDemoModal({ open, onClose }) {
         company: "",
         message: "",
       });
-    }, 1200);
+    } catch (err) {
+      setServerError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -97,6 +168,13 @@ export default function RequestDemoModal({ open, onClose }) {
           <br />
           Request a personalized demo.
         </p>
+
+        {serverError ? (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {serverError}
+          </div>
+        ) : null}
+
         <form className="space-y-3" onSubmit={handleSubmit} autoComplete="off">
           {/* Name */}
           <div>
@@ -114,6 +192,7 @@ export default function RequestDemoModal({ open, onClose }) {
               <div className="text-xs text-red-500 mt-0.5">{errors.name}</div>
             )}
           </div>
+
           {/* Email */}
           <div>
             <input
@@ -130,22 +209,32 @@ export default function RequestDemoModal({ open, onClose }) {
               <div className="text-xs text-red-500 mt-0.5">{errors.email}</div>
             )}
           </div>
-          {/* Phone */}
+
+          {/* Phone with +91 prefix */}
           <div>
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Phone Number *"
-              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#353376] text-sm ${
-                errors.phone ? "border-red-500" : ""
-              }`}
-              value={form.phone}
-              onChange={handleChange}
-            />
+            <div className="flex">
+              <span className="inline-flex items-center px-3 border border-r-0 rounded-l bg-gray-50 text-sm text-gray-700">
+                +91
+              </span>
+              <input
+                type="tel"
+                name="phone"
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="10-digit number *"
+                className={`w-full px-3 py-2 border rounded-r focus:outline-none focus:ring-2 focus:ring-[#353376] text-sm ${
+                  errors.phone ? "border-red-500" : ""
+                }`}
+                value={form.phone}
+                onChange={handlePhoneChange}
+                maxLength={10}
+              />
+            </div>
             {errors.phone && (
               <div className="text-xs text-red-500 mt-0.5">{errors.phone}</div>
             )}
           </div>
+
           {/* Role */}
           <div>
             <select
@@ -157,14 +246,15 @@ export default function RequestDemoModal({ open, onClose }) {
               onChange={handleChange}
             >
               <option value="">Role *</option>
-              <option>Brand</option>
-              <option>Influencer</option>
-              <option>Other</option>
+              <option value="brand">Brand</option>
+              <option value="influencer">Influencer</option>
+              <option value="other">Other</option>
             </select>
             {errors.role && (
               <div className="text-xs text-red-500 mt-0.5">{errors.role}</div>
             )}
           </div>
+
           {/* Company */}
           <div>
             <input
@@ -176,6 +266,7 @@ export default function RequestDemoModal({ open, onClose }) {
               onChange={handleChange}
             />
           </div>
+
           {/* Message */}
           <div>
             <textarea
@@ -187,6 +278,7 @@ export default function RequestDemoModal({ open, onClose }) {
               onChange={handleChange}
             />
           </div>
+
           <button
             type="submit"
             className="w-full bg-[#353376] hover:bg-[#23215b] text-white font-medium rounded py-2 mt-2 transition disabled:opacity-70"

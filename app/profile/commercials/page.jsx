@@ -13,59 +13,108 @@ const servicesList = [
 ];
 
 export default function CommercialsPage() {
-  const [tab, setTab] = useState("Instagram");
+  const [tab, setTab] = useState("Instagram"); // Instagram / Youtube
   const [service, setService] = useState("");
   const [serviceOpen, setServiceOpen] = useState(false);
   const [rate, setRate] = useState("");
-  const [rate2, setRate2] = useState("");
-  const [addMore, setAddMore] = useState("");
+  const [services, setServices] = useState([]);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const addService = () => {
+    if (!service) return alert("Please select a service");
+    const num = Number(rate);
+    if (!rate || isNaN(num) || num <= 0)
+      return alert("Please enter a valid rate");
+    setServices((prev) => [...prev, { service, rate: num }]);
+    setService("");
+    setRate("");
+  };
+
+  const removeService = (index) => {
+    setServices((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (services.length === 0) {
+      return alert("Please add at least one service");
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await fetch("/commercials", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: tab.toLowerCase(),
+          services,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMessage(data.message || `${tab} commercials updated`);
+      } else {
+        setMessage(data.error || "Something went wrong");
+      }
+    } catch {
+      setMessage("Error connecting to server");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div>
-      {/* Header row with title and tabs, all in one line */}
-      <div
-        className="w-full flex items-end"
-        style={{
-          background: "#FFFFFF",
-          boxShadow: "0px 4px 4px 0px #00000040",
-          height: "60px",
-          borderBottom: "1.5px solid #DCDCDC",
-        }}
-      >
-        <h2 className="text-lg font-bold ml-7 mb-1">Commercials</h2>
-        {/* Tabs */}
-        <div className="flex ml-14 h-full items-end">
-          {["Instagram", "Youtube"].map((t) => (
-            <button
-              key={t}
-              className={`pb-2 px-7 font-semibold text-sm outline-none transition-all relative
-                ${tab === t ? "text-black" : "text-gray-500"}
-              `}
-              style={{
-                borderBottom:
-                  tab === t ? "3px solid #F16623" : "3px solid transparent",
-                background: "none",
-                marginRight: "8px",
-              }}
-              onClick={() => setTab(t)}
-              type="button"
-            >
-              {t}
-            </button>
-          ))}
+    <div className="min-h-screen bg-[#FFF8F0]">
+      {/* ===== Header with shadow lines ===== */}
+      <div className="bg-white">
+        {/* Row 1: Commercials title */}
+        <div
+          className="h-[50px] flex items-center"
+          style={{
+            boxShadow: "0px 4px 4px 0px #00000040",
+          }}
+        >
+          <h2 className="text-lg font-bold ml-6">Commercials</h2>
+        </div>
+
+        {/* Row 2: Tabs */}
+        <div
+          className="flex items-end gap-6 pl-6 h-[50px]"
+          style={{
+            boxShadow: "0px 4px 4px 0px #00000040",
+          }}
+        >
+          {["Instagram", "Youtube"].map((t) => {
+            const active = tab === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`px-0 py-0 text-sm font-semibold border-b-[3px] ${
+                  active
+                    ? "border-[#F16623] text-black"
+                    : "border-transparent text-gray-500"
+                }`}
+                style={{
+                  background: "none",
+                  lineHeight: 1.2,
+                  paddingBottom: "6px",
+                }}
+              >
+                {t}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Commercials Form */}
-      <div className="px-10 py-10">
-        <form
-          className="bg-transparent"
-          onSubmit={(e) => {
-            e.preventDefault();
-          }}
-        >
-          <div className="grid grid-cols-2 gap-x-6 gap-y-5 mb-5">
-            {/* Services */}
+      {/* ===== Form Area ===== */}
+      <div className="px-8 md:px-10 py-8">
+        <form onSubmit={handleSubmit} className="bg-transparent">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mb-6">
+            {/* Services (custom select) */}
             <div className="relative">
               <label className="block mb-1 text-sm font-semibold">
                 Services
@@ -73,12 +122,12 @@ export default function CommercialsPage() {
               <button
                 type="button"
                 onClick={() => setServiceOpen((o) => !o)}
-                className="w-full text-left px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
-                style={{ minHeight: "40px" }}
+                className="w-full text-left px-4 py-2 rounded-[10px] border border-gray-300 bg-white text-sm"
+                style={{ minHeight: 40 }}
               >
                 {service ? service : "-select services-"}
               </button>
-              {/* Dropdown */}
+
               {serviceOpen && (
                 <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-xl max-h-64 overflow-y-auto">
                   {servicesList.map((s) => (
@@ -98,50 +147,75 @@ export default function CommercialsPage() {
                 </div>
               )}
             </div>
+
             {/* Rate */}
             <div>
               <label className="block mb-1 text-sm font-semibold">Rate</label>
               <input
-                type="text"
+                type="number"
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
+                className="w-full px-4 py-2 rounded-[10px] border border-gray-300 bg-white text-sm placeholder-gray-400"
                 placeholder="Rate"
               />
             </div>
-            {/* Rate2 */}
-            <div>
-              <label className="block mb-1 text-sm font-semibold">Rate</label>
-              <input
-                type="text"
-                value={rate2}
-                onChange={(e) => setRate2(e.target.value)}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
-                placeholder="Enter rate"
-              />
-            </div>
-            {/* Add More */}
-            <div>
-              <label className="block mb-1 text-sm font-semibold">
-                Add More
-              </label>
-              <input
-                type="text"
-                value={addMore}
-                onChange={(e) => setAddMore(e.target.value)}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 bg-gray-100 text-sm"
-                placeholder="Add More"
-                disabled
-              />
-            </div>
           </div>
-          <div className="flex justify-center mt-2">
+
+          {/* Add button */}
+          <div className="flex justify-start mb-6">
+            <button
+              type="button"
+              onClick={addService}
+              className="bg-[#3A36DB] hover:bg-[#2f2ac2] text-white px-6 py-2 rounded-md text-sm font-semibold"
+            >
+              Add Service
+            </button>
+          </div>
+
+          {/* Services table */}
+          {services.length > 0 && (
+            <div className="mb-6">
+              <table className="min-w-full bg-white border rounded-md text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2 text-left">Service</th>
+                    <th className="p-2 text-left">Rate</th>
+                    <th className="p-2 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {services.map((s, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="p-2">{s.service}</td>
+                      <td className="p-2">₹{s.rate}</td>
+                      <td className="p-2">
+                        <button
+                          type="button"
+                          onClick={() => removeService(i)}
+                          className="text-red-500 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Save button */}
+          <div className="flex flex-col items-center gap-3">
             <button
               type="submit"
-              className="bg-[#F16623] hover:bg-[#d95312] text-white px-10 py-2 rounded-md font-semibold text-base"
+              disabled={loading}
+              className="bg-[#F16623] hover:bg-[#d95312] text-white px-10 py-2 rounded-md font-semibold text-base disabled:opacity-50"
             >
-              SAVE
+              {loading ? "Saving..." : "SAVE"}
             </button>
+            {message && (
+              <p className="text-sm font-medium text-gray-700">{message}</p>
+            )}
           </div>
         </form>
       </div>

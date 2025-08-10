@@ -113,7 +113,7 @@ export default function InfluencerDashboard() {
         Content Goes Here (if any)
       </header>
       {/* Inner Content */}
-      <main className="p-12">
+      <main className="p-12 pl-24">
         <h2 className="text-xl font-semibold mb-2">
           Let’s add your account(s)
         </h2>

@@ -24,6 +24,15 @@ export default function Header() {
     };
   }, [isLanguageOpen]);
 
+  // put this above the return (inside your component)
+  const navLinks = [
+    { label: "For Brands", href: "/signup/brand" },
+    { label: "For Agencies", href: "/signup/agency" },
+    { label: "For Creators", href: "/signup/influencer" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "In News", href: "/news" },
+  ];
+
   return (
     <header
       className="shadow-[0_4px_12px_rgba(0,0,0,0.25)] sticky top-0 z-50 px-6 py-4"
@@ -32,25 +41,26 @@ export default function Header() {
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center">
-          <img src="/freetym.svg" alt="Freetym" className="h-8 w-auto mr-0.5" />
-          <img src="/freetym_logo.svg" alt="Freetym" className="h-8 w-auto" />
+          <Link href="/" className="flex items-center">
+            <img
+              src="/freetym.svg"
+              alt="Freetym"
+              className="h-8 w-auto mr-0.5"
+            />
+            <img src="/freetym_logo.svg" alt="Freetym" className="h-8 w-auto" />
+          </Link>
         </div>
-        {/* Navigation */}
+
+        {/* Navigation (desktop) */}
         <nav className="hidden md:flex items-center space-x-4 ml-12">
-          {[
-            "For Brands",
-            "For Agencies",
-            "For Creators",
-            "Pricing",
-            "In News",
-          ].map((item) => (
-            <a
-              key={item}
-              href="#"
+          {navLinks.map(({ label, href }) => (
+            <Link
+              key={label}
+              href={href}
               className="text-sm font-medium text-gray-800 px-3 py-1.5 transition-all duration-200 ease-in-out hover:text-blue-600"
             >
-              {item}
-            </a>
+              {label}
+            </Link>
           ))}
         </nav>
 
@@ -114,32 +124,25 @@ export default function Header() {
             {isLanguageOpen && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                 <div className="py-2">
-                  {[
-                    {
-                      img: "/indian-flag.svg",
-                      label: "EN (IND)",
-                    },
-                  ].map(({ flag, img, label }) => (
-                    <button
-                      key={label}
-                      className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="w-5 h-4 rounded-full overflow-hidden border border-gray-300 flex items-center justify-center">
-                        {img ? (
+                  {[{ img: "/indian-flag.svg", label: "EN (IND)" }].map(
+                    ({ img, label }) => (
+                      <button
+                        key={label}
+                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="w-5 h-4 rounded overflow-hidden border border-gray-300 flex items-center justify-center">
                           <img
                             src={img}
                             alt={label}
                             className="w-full h-full object-cover"
                           />
-                        ) : (
-                          <span className="text-xs">{flag}</span>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium text-gray-700">
-                        {label}
-                      </span>
-                    </button>
-                  ))}
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">
+                          {label}
+                        </span>
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -171,25 +174,23 @@ export default function Header() {
       {isMenuOpen && (
         <div className="md:hidden mt-4 pb-4 border-t border-gray-200">
           <nav className="flex flex-col space-y-3 pt-4 text-sm">
-            {[
-              "For Brands",
-              "For Agencies",
-              "For Creators",
-              "Pricing",
-              "In News",
-            ].map((item) => (
-              <a
-                key={item}
-                href="#"
+            {navLinks.map(({ label, href }) => (
+              <Link
+                key={label}
+                href={href}
                 className="text-gray-700 hover:text-orange-500 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
               >
-                {item}
-              </a>
+                {label}
+              </Link>
             ))}
+
             <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-              <button className="text-gray-700 hover:text-orange-500 transition-colors">
-                Sign Up
-              </button>
+              <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
+                <button className="text-gray-700 hover:text-orange-500 transition-colors">
+                  Sign Up
+                </button>
+              </Link>
               <span className="text-gray-400">|</span>
               <button
                 className="text-gray-700 hover:text-orange-500 transition-colors"
@@ -204,6 +205,7 @@ export default function Header() {
           </nav>
         </div>
       )}
+
       <RequestDemoModal
         open={showRequestDemo}
         onClose={() => setShowRequestDemo(false)}

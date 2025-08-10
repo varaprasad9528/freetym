@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   Search,
   LineChart,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 
 export default function FeatureBlocks() {
+  const router = useRouter();
+
   const features = [
     {
       icon: Search,
@@ -62,6 +65,44 @@ export default function FeatureBlocks() {
     },
   ];
 
+  const handleDiscoveryClick = () => {
+    console.log("[FeatureBlocks] Clicked: Try influencer discovery");
+
+    const hero = document.getElementById("hero-section");
+    console.log("[FeatureBlocks] hero-section found?", !!hero);
+
+    if (hero) {
+      const searchBar = document.getElementById("influencer-search-input");
+      if (searchBar) {
+        searchBar.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        hero.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      console.log("[FeatureBlocks] Called scrollIntoView on hero-section");
+
+      setTimeout(() => {
+        const input = document.getElementById("influencer-search-input");
+        console.log(
+          "[FeatureBlocks] influencer-search-input found after timeout?",
+          !!input
+        );
+        if (input && typeof input.focus === "function") {
+          input.focus();
+          console.log("[FeatureBlocks] input.focus() called successfully");
+        } else {
+          console.warn(
+            "[FeatureBlocks] input NOT found. Check id='influencer-search-input'"
+          );
+        }
+      }, 600);
+    } else {
+      console.warn("[FeatureBlocks] hero-section NOT found. Navigating.");
+      sessionStorage.setItem("focusInfluencerSearch", "1");
+      router.push("/#hero-section");
+    }
+  };
+
   return (
     <section className="px-6 py-16" style={{ backgroundColor: "#FFF8F0" }}>
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -90,23 +131,10 @@ export default function FeatureBlocks() {
 
             <button
               className="bg-blue-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors mb-3 hover:bg-white hover:text-blue-700 border border-blue-700"
-              onClick={
-                index === 0
-                  ? () => {
-                      // Scroll to the hero section (showing the full orange box/image)
-                      const hero = document.getElementById("hero-section");
-                      if (hero) hero.scrollIntoView({ behavior: "smooth" });
-                      setTimeout(() => {
-                        // Then focus the search input
-                        const input = document.getElementById(
-                          "influencer-search-input"
-                        );
-                        if (input) input.focus();
-                      }, 600); // 600ms for smooth scroll, tweak as needed
-                    }
-                  : undefined
-              }
+              onClick={index === 0 ? handleDiscoveryClick : undefined}
             >
+              {index === 0 &&
+                console.log("[FeatureBlocks] onClick attached to first card")}
               {feature.buttonText}
             </button>
 

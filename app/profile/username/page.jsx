@@ -1,35 +1,131 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-// Dummy async check (simulate API call)
-function checkUsernameAvailable(username) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (!username) resolve(null);
-      else if (username.toLowerCase() === "username123") resolve(false);
-      else resolve(true);
-    }, 700);
-  });
+function buildAuthHeaders(extra = {}) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
 }
+
+const usernameRegex = /^[a-z0-9_]{3,20}$/; // letters, numbers, underscore, 3–20 chars
 
 export default function UsernamePage() {
   const [username, setUsername] = useState("");
-  const [available, setAvailable] = useState(null);
-  const [checking, setChecking] = useState(false);
+  const [current, setCurrent] = useState(""); // current username from server
+  const [loading, setLoading] = useState(true); // initial GET
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleChange = async (e) => {
-    const value = e.target.value;
-    setUsername(value);
-    setAvailable(null);
-    if (value) {
-      setChecking(true);
-      const isAvailable = await checkUsernameAvailable(value);
-      setAvailable(isAvailable);
-      setChecking(false);
+  const [msg, setMsg] = useState(""); // success message
+  const [err, setErr] = useState(""); // error message (ui-visible, except token)
+
+  // Prefill from profile (if your GET returns username)
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setErr("");
+      setMsg("");
+
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        console.error("No token provided.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const r = await fetch("/api/profile", {
+          headers: buildAuthHeaders(),
+        });
+        const js = await r.json();
+
+        if (r.status === 401 || js?.message === "No token provided.") {
+          console.error("No token provided.");
+          setLoading(false);
+          return;
+        }
+        if (!r.ok) {
+          setErr(js?.message || "Failed to load profile.");
+          setLoading(false);
+          return;
+        }
+
+        const data = js?.data || js;
+        const u = data?.username || "";
+        setCurrent(u);
+        setUsername(u);
+      } catch {
+        setErr("Network error while loading profile.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Client validation
+  const usernameError = useMemo(() => {
+    if (!username) return "";
+    if (!usernameRegex.test(username))
+      return "Use 3–20 characters: lowercase letters, numbers, or underscore.";
+    return "";
+  }, [username]);
+
+  const canSubmit =
+    !loading &&
+    !submitting &&
+    !!username &&
+    !usernameError &&
+    username !== current;
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    setMsg("");
+
+    if (!canSubmit) return;
+
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      console.error("No token provided.");
+      return;
     }
-  };
 
-  const canSubmit = available === true && !checking;
+    try {
+      setSubmitting(true);
+      const r = await fetch("/api/profile/username", {
+        method: "PUT",
+        headers: buildAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ username }),
+      });
+      const js = await r.json();
+
+      if (r.status === 401 || js?.message === "No token provided.") {
+        console.error("No token provided.");
+        return;
+      }
+
+      if (!r.ok) {
+        // Backend contract:
+        //  - { error: "Username already taken" }
+        //  - or { message: "..." } for other errors
+        const serverErr = js?.error || js?.message || "Update failed.";
+        setErr(serverErr);
+        return;
+      }
+
+      // Success: { message: "Username updated" }
+      setMsg(js?.message || "Username updated");
+      setCurrent(username);
+    } catch {
+      setErr("Network error while updating username.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div>
@@ -45,15 +141,27 @@ export default function UsernamePage() {
       ></div>
 
       {/* Main Content */}
-      <div className="px-10 py-10">
+      <div className="px-10 py-2">
         <h2 className="text-lg font-bold mb-10">Username</h2>
-        <form
-          className="max-w-3xl mx-auto"
-          onSubmit={(e) => {
-            e.preventDefault();
-            // Submit logic here
-          }}
-        >
+
+        {loading ? (
+          <div className="text-sm text-gray-600 mb-4">Loading...</div>
+        ) : (
+          <>
+            {err && (
+              <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                {err}
+              </div>
+            )}
+            {msg && (
+              <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+                {msg}
+              </div>
+            )}
+          </>
+        )}
+
+        <form className="max-w-3xl mx-auto" onSubmit={onSubmit}>
           <div className="mb-2">
             <label
               className="block mb-1 text-sm font-semibold"
@@ -65,23 +173,32 @@ export default function UsernamePage() {
               id="username"
               type="text"
               value={username}
-              onChange={handleChange}
+              onChange={(e) => {
+                setUsername(e.target.value.trim().toLowerCase());
+                setErr("");
+                setMsg("");
+              }}
               placeholder="Enter your username"
               className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
               autoComplete="off"
             />
           </div>
-          {/* Status message */}
-          {username && !checking && available === true && (
-            <div className="mb-3 text-xs text-green-600">
-              Username is available
+
+          {/* Inline validation */}
+          {username && usernameError && (
+            <div className="mb-3 text-xs text-red-500">{usernameError}</div>
+          )}
+          {username && !usernameError && username !== current && (
+            <div className="mb-3 text-xs text-gray-600">
+              This username looks valid. Click Submit to update.
             </div>
           )}
-          {username && !checking && available === false && (
-            <div className="mb-3 text-xs text-red-500">
-              Username is not available
+          {username && username === current && (
+            <div className="mb-3 text-xs text-gray-500">
+              This is already your current username.
             </div>
           )}
+
           <div className="flex justify-center mt-4">
             <button
               type="submit"
@@ -89,12 +206,12 @@ export default function UsernamePage() {
               className={`px-10 py-2 rounded-md font-semibold text-base transition
                 ${
                   canSubmit
-                    ? "bg-[#F16623] text-white cursor-pointer"
+                    ? "bg-[#F16623] text-white cursor-pointer hover:bg-[#d95312]"
                     : "bg-[#FEBB97] text-white cursor-not-allowed"
                 }
               `}
             >
-              SUBMIT
+              {submitting ? "SUBMITTING..." : "SUBMIT"}
             </button>
           </div>
         </form>

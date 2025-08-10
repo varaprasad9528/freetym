@@ -34,6 +34,8 @@ export default function HeroSection() {
 
   const handleSelectAll = () => setSelectedCategories(categoryList);
   const handleClear = () => setSelectedCategories([]);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -45,7 +47,6 @@ export default function HeroSection() {
       ) {
         setShowPlatformDropdown(false);
       }
-      // Category Dropdown
       if (
         showCategoryDropdown &&
         categoryDropdownRef.current &&
@@ -55,9 +56,7 @@ export default function HeroSection() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showPlatformDropdown, showCategoryDropdown]);
 
   const platformIcons = {
@@ -67,8 +66,42 @@ export default function HeroSection() {
       "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_(2017).svg",
   };
 
+  // 🔑 Enable cross-page scroll + focus when arriving from FeatureBlocks
+  useEffect(() => {
+    const hero = document.getElementById("hero-section");
+    const input = document.getElementById("influencer-search-input");
+    console.log(
+      "[Hero] Mounted. hero present?",
+      !!hero,
+      "input present?",
+      !!input
+    );
+
+    const arrivedWithIntent =
+      sessionStorage.getItem("focusInfluencerSearch") === "1";
+    const urlHasHash =
+      typeof window !== "undefined" && window.location.hash === "#hero-section";
+
+    if (arrivedWithIntent || urlHasHash) {
+      sessionStorage.removeItem("focusInfluencerSearch");
+      if (hero) hero.scrollIntoView({ behavior: "smooth" });
+
+      const tryFocus = () => {
+        const el = document.getElementById("influencer-search-input");
+        if (el && typeof el.focus === "function") el.focus();
+        else requestAnimationFrame(tryFocus);
+      };
+      tryFocus();
+    }
+  }, []);
+
   return (
-    <section className="px-6 py-16" style={{ backgroundColor: "#FFF8F0" }}>
+    // ✅ Add the hero id here
+    <section
+      id="hero-section"
+      className="px-6 py-16"
+      style={{ backgroundColor: "#FFF8F0" }}
+    >
       <div className="max-w-7xl mx-auto text-center">
         {/* Heading */}
         <h1
@@ -199,8 +232,9 @@ export default function HeroSection() {
               )}
             </div>
 
-            {/* Input */}
+            {/* Input (✅ add the input id here) */}
             <input
+              id="influencer-search-input"
               type="text"
               placeholder="Search influencers..."
               className="flex-1 px-4 py-2 text-gray-700 bg-transparent outline-none"
@@ -232,7 +266,6 @@ export default function HeroSection() {
                 type="button"
                 onClick={() => setShowCategoryDropdown((v) => !v)}
               >
-                {/* SVG filter icon here */}
                 <svg
                   className="w-5 h-5 text-gray-600"
                   fill="none"
@@ -270,10 +303,7 @@ export default function HeroSection() {
                             ? "bg-gray-100 font-semibold"
                             : "hover:bg-gray-50"
                         }`}
-                        style={{
-                          fontSize: "13px",
-                          padding: "6px 8px",
-                        }}
+                        style={{ fontSize: "13px", padding: "6px 8px" }}
                       >
                         {cat}
                       </button>
@@ -370,7 +400,6 @@ export default function HeroSection() {
       {/* Brand Logos Full Width */}
       <div className="w-full mt-16 overflow-hidden px-0">
         <div className="relative flex whitespace-nowrap">
-          {/* Repeating the animated strip twice for seamless loop */}
           <div className="flex animate-marquee space-x-16 items-center opacity-80 grayscale hover:grayscale-0">
             {Array.from({ length: 5 }).map((_, i) => (
               <img
