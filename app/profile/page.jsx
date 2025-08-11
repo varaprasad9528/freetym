@@ -258,7 +258,7 @@ export default function ProfilePage() {
         style={{
           background: "#FFFFFF",
           boxShadow: "0px 4px 4px 0px #00000040",
-          height: "54px",
+          height: "50px",
           marginBottom: "24px",
         }}
       ></div>
