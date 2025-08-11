@@ -25,3 +25,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+Development_Report.md
+Development_Status_Update.md
+server/node_modules
+server/.env
+server/.gitignore
+.history

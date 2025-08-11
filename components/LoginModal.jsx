@@ -6,6 +6,10 @@ import ForgotPasswordModal from "./ForgotPasswordModal";
 export default function LoginModal({ open, onClose }) {
   const router = useRouter();
 
+  // ---- API base from env ----
+  const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+  const LOGIN_URL = API_BASE ? `${API_BASE}/api/auth/login` : "/api/auth/login";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -27,21 +31,18 @@ export default function LoginModal({ open, onClose }) {
 
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(LOGIN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // add credentials: "include" if your backend sets httpOnly cookies
         body: JSON.stringify({ email, password }),
       });
 
-      // Try to parse JSON either way (ok or error)
       let data = {};
       try {
         data = await res.json();
-      } catch (_) {
-        data = {};
-      }
+      } catch {}
 
-      // If backend sends 401/400 with { message: "Invalid credentials." }
       if (!res.ok) {
         setSubmitError(
           typeof data?.message === "string" && data.message.trim()
@@ -51,32 +52,21 @@ export default function LoginModal({ open, onClose }) {
         return;
       }
 
-      // Success case must include token, role, userId
       const { token, role, userId, message } = data || {};
-
-      // Edge case: API returns 200 but indicates failure via message
       if (!token || !role || !userId) {
         setSubmitError(
-          typeof message === "string" && message.trim()
-            ? message
-            : "Unexpected response. Please try again."
+          message?.trim() || "Unexpected response. Please try again."
         );
         return;
       }
 
-      // Persist auth (adjust if you use cookies)
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("userId", userId);
 
-      // Route by role (tweak to your paths)
-      if (role === "influencer") {
-        router.push("/signup/influencer/dashboard");
-      } else if (role === "brand" || role === "agency") {
-        router.push("/dashboard");
-      } else {
-        router.push("/");
-      }
+      if (role === "influencer") router.push("/signup/influencer/dashboard");
+      else if (role === "brand" || role === "agency") router.push("/dashboard");
+      else router.push("/");
 
       onClose?.();
     } catch {
@@ -182,7 +172,6 @@ export default function LoginModal({ open, onClose }) {
               </a>
             </div>
 
-            {/* Server error (shows "Invalid credentials." verbatim) */}
             {submitError && (
               <div className="text-red-600 flex items-center gap-2 mb-3 text-sm">
                 <span className="text-lg">⚠️</span>
@@ -190,7 +179,6 @@ export default function LoginModal({ open, onClose }) {
               </div>
             )}
 
-            {/* Submit */}
             <button
               className={`w-full py-2 rounded-md font-semibold text-lg transition 
                 ${

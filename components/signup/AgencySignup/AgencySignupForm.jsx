@@ -4,6 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import LoginModal from "@/components/LoginModal";
 
+// ---- Env-based API base (uses NEXT_PUBLIC_API_BASE) ----
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+
 const testimonials = [
   {
     text: "Freetym delivers clear, transparent results, and is highly recommended!",
@@ -42,7 +46,7 @@ export default function AgencySignupPage() {
     fullName: "",
     companyName: "",
     businessEmail: "",
-    phone: "", // store only 10 digits here (UI shows +91 separately)
+    phone: "", // only 10 digits; UI shows +91
     location: "",
     termsAccepted: false,
     password: "",
@@ -89,7 +93,7 @@ export default function AgencySignupPage() {
     () => emailRegex.test(form.businessEmail.trim()),
     [form.businessEmail]
   );
-  const canPhone = emailOtpVerified; // enable phone after email OTP verified
+  const canPhone = emailOtpVerified;
   const isLocValid = useMemo(() => !!form.location, [form.location]);
   const isConfirmValid =
     form.confirmPassword && form.confirmPassword === form.password;
@@ -171,7 +175,7 @@ export default function AgencySignupPage() {
   // API: Email OTP (role: "agency")
   const sendEmailOtp = async () => {
     try {
-      const res = await fetch("/api/auth/register/email", {
+      const res = await fetch(API("/api/auth/register/email"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -189,12 +193,13 @@ export default function AgencySignupPage() {
       alert(e.message || "Error sending email OTP");
     }
   };
+
   const resendEmailOtp = async () => sendEmailOtp();
 
   // Verify Email OTP (include name + role)
   const verifyEmailOtp = async () => {
     try {
-      const res = await fetch("/api/auth/register/email/verify", {
+      const res = await fetch(API("/api/auth/register/email/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -216,7 +221,7 @@ export default function AgencySignupPage() {
   // Phone OTP (always send +91 + email)
   const sendPhoneOtp = async () => {
     try {
-      const res = await fetch("/api/auth/register/phone", {
+      const res = await fetch(API("/api/auth/register/phone"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,7 +242,7 @@ export default function AgencySignupPage() {
 
   const verifyPhoneOtp = async () => {
     try {
-      const res = await fetch("/api/auth/register/phone/verify", {
+      const res = await fetch(API("/api/auth/register/phone/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -266,10 +271,10 @@ export default function AgencySignupPage() {
         password: form.password,
         confirmPassword: form.confirmPassword,
         location: form.location,
-        termsAccepted: String(!!form.termsAccepted), // "true" | "false"
+        termsAccepted: String(!!form.termsAccepted),
       };
 
-      const res = await fetch("/api/auth/register/agency", {
+      const res = await fetch(API("/api/auth/register/agency"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -523,7 +528,7 @@ export default function AgencySignupPage() {
             onClose={() => setShowPhoneOtpPopup(false)}
             onVerify={verifyPhoneOtp}
             otp={form.phoneOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))} // store in state
+            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
             timer={phoneOtpTimer}
             onResend={resendPhoneOtp}
             type="Phone"

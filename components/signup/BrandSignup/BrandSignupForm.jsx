@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import LoginModal from "@/components/LoginModal";
 
-const BASE = ""; // keep empty if you set a Next.js rewrite to 5000; else set "http://localhost:5000"
+// ---- Env-based API base (uses NEXT_PUBLIC_API_BASE) ----
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 
 // Shared OTP popup
 function OtpPopup({
@@ -92,7 +94,7 @@ export default function BrandSignupPage() {
     fullName: "",
     companyName: "",
     businessEmail: "",
-    phone: "", // store only 10 digits here
+    phone: "", // store only 10 digits
     industryType: "",
     location: "",
     termsAccepted: false,
@@ -228,11 +230,11 @@ export default function BrandSignupPage() {
     });
   };
 
-  // --- API: Email OTP (same as influencer, but role:"brand") ---
+  // --- API: Email OTP ---
   // POST /api/auth/register/email  { name, email, role: "brand" }
   const sendEmailOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/email`, {
+      const res = await fetch(API("/api/auth/register/email"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -255,7 +257,7 @@ export default function BrandSignupPage() {
   // POST /api/auth/register/email/verify  { name, role, otp, email }
   const verifyEmailOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/email/verify`, {
+      const res = await fetch(API("/api/auth/register/email/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -277,11 +279,11 @@ export default function BrandSignupPage() {
     }
   };
 
-  // --- API: Phone OTP (same as influencer) ---
+  // --- API: Phone OTP ---
   // POST /api/auth/register/phone  { phone:"+91xxxxxxxxxx", email }
   const sendPhoneOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/phone`, {
+      const res = await fetch(API("/api/auth/register/phone"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -303,7 +305,7 @@ export default function BrandSignupPage() {
   // POST /api/auth/register/phone/verify  { email, phone:"+91...", otp }
   const verifyPhoneOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/phone/verify`, {
+      const res = await fetch(API("/api/auth/register/phone/verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -338,7 +340,7 @@ export default function BrandSignupPage() {
         termsAccepted: String(!!form.termsAccepted), // "true" / "false"
       };
 
-      const res = await fetch(`${BASE}/api/auth/register/brand`, {
+      const res = await fetch(API("/api/auth/register/brand"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -545,7 +547,7 @@ export default function BrandSignupPage() {
             onClose={() => setShowPhoneOtpPopup(false)}
             onVerify={verifyPhoneOtp}
             otp={form.phoneOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))} // store in state
+            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
             timer={phoneOtpTimer}
             onResend={resendPhoneOtp}
             type="Phone"
