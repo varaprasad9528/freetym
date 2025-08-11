@@ -1,7 +1,15 @@
 "use client";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, KeyRound, Phone, Home, IndianRupee, Bell } from "lucide-react";
+import {
+  User,
+  KeyRound,
+  Phone,
+  Home,
+  IndianRupee,
+  Bell,
+  LogOut,
+} from "lucide-react";
 
 const menu = [
   { label: "Personal Details", icon: <User size={18} />, href: "/profile" },
@@ -34,6 +42,7 @@ const menu = [
 
 export default function ProfileLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (href) => {
     const clean = (p) => (p.endsWith("/") && p !== "/" ? p.slice(0, -1) : p);
@@ -41,6 +50,15 @@ export default function ProfileLayout({ children }) {
     const base = clean(href);
     if (base === "/profile") return cur === "/profile";
     return cur === base || cur.startsWith(base + "/");
+  };
+
+  const handleLogout = () => {
+    // Clear stored auth/session data
+    localStorage.removeItem("authToken");
+    sessionStorage.clear();
+
+    // Redirect to landing page
+    router.push("/");
   };
 
   return (
@@ -89,6 +107,16 @@ export default function ProfileLayout({ children }) {
           </div>
 
           <div className="flex-1" />
+
+          {/* Logout button at bottom */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 py-2 text-sm cursor-pointer transition duration-200 w-full border-t border-[#E0E0E0] mt-4"
+            style={{ paddingLeft: "50px", color: "#000" }}
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
         </div>
       </aside>
 
