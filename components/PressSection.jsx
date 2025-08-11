@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function PressSection() {
   const pressItems = [
     {
@@ -73,9 +75,9 @@ export default function PressSection() {
         ))}
       </div>
 
-      {/* More link */}
-      <a
-        href="#"
+      {/* More link → /news */}
+      <Link
+        href="/news"
         className="text-white hover:underline text-lg font-medium flex items-center space-x-2"
       >
         <span>More about press</span>
@@ -92,7 +94,7 @@ export default function PressSection() {
             d="M9 5l7 7-7 7"
           />
         </svg>
-      </a>
+      </Link>
     </section>
   );
 }

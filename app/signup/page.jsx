@@ -31,7 +31,7 @@ export default function SignUpPage() {
         <div className="flex gap-[50px] mt-12 flex-wrap justify-center">
           {options.map(({ label, href }) => (
             <Link href={href} key={label}>
-              <div className="w-[396px] h-[136px] rounded-[32px] border border-[#2E3192] bg-[#F0EDFF] text-[#2E3192] flex items-center justify-center transition-all duration-300 hover:bg-[#2E3192] hover:text-white cursor-pointer">
+              <div className="w-[350px] h-[120px] rounded-[32px] border border-[#2E3192] bg-[#F0EDFF] text-[#2E3192] flex items-center justify-center transition-all duration-300 hover:bg-[#2E3192] hover:text-white cursor-pointer">
                 <span
                   style={{
                     fontFamily: "Poppins, sans-serif",

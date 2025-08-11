@@ -38,7 +38,7 @@ body {
 
 /* Use this for testimonial row, slower */
 .animate-marquee-slow {
-  animation: marquee-slow 100s linear infinite;
+  animation: marquee-slow 15s linear infinite;
 }
 
 /* Optional: Hide scrollbar for horizontal overflow */

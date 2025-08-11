@@ -55,7 +55,7 @@ export default function ContactDetailsPage() {
           marginBottom: "24px",
         }}
       ></div>
-      <div className="px-10 py-10">
+      <div className="px-10 py-2">
         <h2 className="text-lg font-bold mb-10">Contact Details</h2>
         <form className="max-w-3xl mx-auto">
           {/* Whatsapp Number */}
