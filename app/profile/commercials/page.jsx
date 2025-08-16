@@ -1,6 +1,34 @@
 "use client";
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
+/* ===== API config (env-based, absolute) ===== */
+function cleanBase(base) {
+  const b = (base || "http://localhost:5000").replace(/\/+$/, "");
+  try {
+    const u = new URL(b.includes("://") ? b : `http://${b}`);
+    return u.origin;
+  } catch {
+    return "http://localhost:5000";
+  }
+}
+const API_BASE = cleanBase(process.env.NEXT_PUBLIC_API_BASE);
+
+// Change this path if your backend route is different
+const ENDPOINTS = {
+  COMMERCIALS: `${API_BASE}/api/profile/commercials`,
+};
+
+function authHeaders(extra = {}) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+/* ===== Data ===== */
 const servicesList = [
   "Reel",
   "Image Story",
@@ -26,6 +54,10 @@ export default function CommercialsPage() {
     const num = Number(rate);
     if (!rate || isNaN(num) || num <= 0)
       return alert("Please enter a valid rate");
+    // optional: prevent duplicates of same service
+    if (services.some((s) => s.service === service)) {
+      return alert("This service is already added");
+    }
     setServices((prev) => [...prev, { service, rate: num }]);
     setService("");
     setRate("");
@@ -43,11 +75,11 @@ export default function CommercialsPage() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/commercials", {
+      const res = await fetch(ENDPOINTS.COMMERCIALS, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          platform: tab.toLowerCase(),
+          platform: tab.toLowerCase(), // "instagram" | "youtube"
           services,
         }),
       });
@@ -55,7 +87,7 @@ export default function CommercialsPage() {
       if (res.ok) {
         setMessage(data.message || `${tab} commercials updated`);
       } else {
-        setMessage(data.error || "Something went wrong");
+        setMessage(data.error || data.message || "Something went wrong");
       }
     } catch {
       setMessage("Error connecting to server");
@@ -71,9 +103,7 @@ export default function CommercialsPage() {
         {/* Row 1: Commercials title */}
         <div
           className="h-[50px] flex items-center"
-          style={{
-            boxShadow: "0px 4px 4px 0px #00000040",
-          }}
+          style={{ boxShadow: "0px 4px 4px 0px #00000040" }}
         >
           <h2 className="text-lg font-bold ml-6">Commercials</h2>
         </div>
@@ -81,9 +111,7 @@ export default function CommercialsPage() {
         {/* Row 2: Tabs */}
         <div
           className="flex items-end gap-6 pl-6 h-[50px]"
-          style={{
-            boxShadow: "0px 4px 4px 0px #00000040",
-          }}
+          style={{ boxShadow: "0px 4px 4px 0px #00000040" }}
         >
           {["Instagram", "Youtube"].map((t) => {
             const active = tab === t;
@@ -100,7 +128,7 @@ export default function CommercialsPage() {
                 style={{
                   background: "none",
                   lineHeight: 1.2,
-                  paddingBottom: "6px",
+                  paddingBottom: 6,
                 }}
               >
                 {t}
@@ -114,7 +142,7 @@ export default function CommercialsPage() {
       <div className="px-8 md:px-10 py-8">
         <form onSubmit={handleSubmit} className="bg-transparent">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mb-6">
-            {/* Services (custom select) */}
+            {/* Services (custom select with down icon) */}
             <div className="relative">
               <label className="block mb-1 text-sm font-semibold">
                 Services
@@ -122,17 +150,32 @@ export default function CommercialsPage() {
               <button
                 type="button"
                 onClick={() => setServiceOpen((o) => !o)}
-                className="w-full text-left px-4 py-2 rounded-[10px] border border-gray-300 bg-white text-sm"
+                className="w-full px-4 py-2 rounded-[10px] border border-gray-300 bg-white text-sm flex items-center justify-between"
                 style={{ minHeight: 40 }}
+                aria-haspopup="listbox"
+                aria-expanded={serviceOpen}
               >
-                {service ? service : "-select services-"}
+                <span className="truncate">
+                  {service ? service : "-select services-"}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${
+                    serviceOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {serviceOpen && (
-                <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-xl max-h-64 overflow-y-auto">
+                <div
+                  role="listbox"
+                  className="absolute z-10 mt-1 w-full bg-white border rounded shadow-xl max-h-64 overflow-y-auto"
+                >
                   {servicesList.map((s) => (
                     <div
                       key={s}
+                      role="option"
+                      aria-selected={service === s}
                       onClick={() => {
                         setService(s);
                         setServiceOpen(false);
@@ -153,6 +196,8 @@ export default function CommercialsPage() {
               <label className="block mb-1 text-sm font-semibold">Rate</label>
               <input
                 type="number"
+                min="0"
+                step="1"
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
                 className="w-full px-4 py-2 rounded-[10px] border border-gray-300 bg-white text-sm placeholder-gray-400"

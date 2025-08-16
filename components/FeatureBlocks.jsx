@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -11,8 +12,12 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
+// ⬇️ Update this path to where your modal lives
+import LoginModal from "@/components/LoginModal";
+
 export default function FeatureBlocks() {
   const router = useRouter();
+  const [showLogin, setShowLogin] = useState(false);
 
   const features = [
     {
@@ -66,11 +71,7 @@ export default function FeatureBlocks() {
   ];
 
   const handleDiscoveryClick = () => {
-    console.log("[FeatureBlocks] Clicked: Try influencer discovery");
-
     const hero = document.getElementById("hero-section");
-    console.log("[FeatureBlocks] hero-section found?", !!hero);
-
     if (hero) {
       const searchBar = document.getElementById("influencer-search-input");
       if (searchBar) {
@@ -78,26 +79,11 @@ export default function FeatureBlocks() {
       } else {
         hero.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-
-      console.log("[FeatureBlocks] Called scrollIntoView on hero-section");
-
       setTimeout(() => {
         const input = document.getElementById("influencer-search-input");
-        console.log(
-          "[FeatureBlocks] influencer-search-input found after timeout?",
-          !!input
-        );
-        if (input && typeof input.focus === "function") {
-          input.focus();
-          console.log("[FeatureBlocks] input.focus() called successfully");
-        } else {
-          console.warn(
-            "[FeatureBlocks] input NOT found. Check id='influencer-search-input'"
-          );
-        }
+        if (input && typeof input.focus === "function") input.focus();
       }, 600);
     } else {
-      console.warn("[FeatureBlocks] hero-section NOT found. Navigating.");
       sessionStorage.setItem("focusInfluencerSearch", "1");
       router.push("/#hero-section");
     }
@@ -105,11 +91,12 @@ export default function FeatureBlocks() {
 
   return (
     <section className="px-6 py-16" style={{ backgroundColor: "#FFF8F0" }}>
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* items-stretch + h-full + mt-auto keep CTAs on one baseline */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
         {features.map((feature, index) => (
           <div
             key={index}
-            className="rounded-xl p-8 flex flex-col items-center text-center shadow-md transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+            className="rounded-xl p-8 flex flex-col h-full items-center text-center shadow-md transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
             style={{
               maxWidth: "483px",
               backgroundColor: "#FFD1B8",
@@ -127,27 +114,38 @@ export default function FeatureBlocks() {
               {feature.title}
             </h3>
 
-            <p className="text-gray-600 mb-3">{feature.description}</p>
+            <p className="text-gray-600">{feature.description}</p>
 
-            <button
-              className="bg-blue-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors mb-3 hover:bg-white hover:text-blue-700 border border-blue-700"
-              onClick={index === 0 ? handleDiscoveryClick : undefined}
-            >
-              {index === 0 &&
-                console.log("[FeatureBlocks] onClick attached to first card")}
-              {feature.buttonText}
-            </button>
+            {/* CTA footer pinned to bottom */}
+            <div className="mt-auto flex flex-col items-center gap-3 pt-6">
+              <button
+                className="bg-blue-700 text-white px-6 py-3 rounded-full text-sm font-medium transition-colors hover:bg-white hover:text-blue-700 border border-blue-700"
+                onClick={() => {
+                  if (index === 0) {
+                    handleDiscoveryClick();
+                  } else {
+                    setShowLogin(true); // open imported LoginModal
+                  }
+                }}
+              >
+                {feature.buttonText}
+              </button>
 
-            <a
-              href="#"
-              className="text-blue-700 hover:underline text-sm font-medium flex items-center gap-1"
-            >
-              <span>{feature.linkText}</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </a>
+              <a
+                href="#"
+                className="text-blue-700 hover:underline text-sm font-medium flex items-center gap-1"
+                onClick={(e) => e.preventDefault()}
+              >
+                <span>{feature.linkText}</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Imported modal rendered here, controlled locally */}
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
     </section>
   );
 }

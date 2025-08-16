@@ -1,6 +1,32 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
+/* ========= Config (env-based absolute URL) ========= */
+function cleanBase(base) {
+  const b = (base || "http://localhost:5000").replace(/\/+$/, "");
+  try {
+    const u = new URL(b.includes("://") ? b : `http://${b}`);
+    return u.origin; // e.g., http://localhost:5000
+  } catch {
+    return "http://localhost:5000";
+  }
+}
+const API_BASE = cleanBase(process.env.NEXT_PUBLIC_API_BASE);
+
+// Adjust this path to match your backend if needed
+const ENDPOINTS = {
+  ADDRESS: `${API_BASE}/api/profile/address`,
+};
+
+function authHeaders(extra = {}) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 const IN_STATES = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
@@ -57,6 +83,7 @@ export default function AddressDetailsPage() {
   const [message, setMessage] = useState("");
   const [isEditing, setIsEditing] = useState(true);
   const [hasExisting, setHasExisting] = useState(false);
+  const [err, setErr] = useState("");
 
   // ---- Load existing address on mount ----
   useEffect(() => {
@@ -64,11 +91,22 @@ export default function AddressDetailsPage() {
     (async () => {
       try {
         setInitialLoading(true);
-        const res = await fetch("/address", { method: "GET" });
-        if (!cancelled) {
-          if (res.ok) {
-            const data = await res.json();
+        setErr("");
+        const res = await fetch(ENDPOINTS.ADDRESS, {
+          method: "GET",
+          headers: authHeaders(),
+          cache: "no-store",
+          mode: "cors",
+        });
 
+        const data = await res.json().catch(() => ({}));
+
+        if (!cancelled) {
+          if (res.status === 401) {
+            setErr(data?.message || "Unauthorized. Please login again.");
+            setHasExisting(false);
+            setIsEditing(true);
+          } else if (res.ok) {
             const filled = {
               country: data.country || "India",
               state: data.state || "",
@@ -78,19 +116,31 @@ export default function AddressDetailsPage() {
             };
             setForm(filled);
             setLastSaved(filled);
-            setHasExisting(true);
-            setIsEditing(false);
+            setHasExisting(
+              Boolean(
+                data &&
+                  (data.state || data.city || data.pincode || data.fullAddress)
+              )
+            );
+            setIsEditing(
+              !Boolean(
+                data &&
+                  (data.state || data.city || data.pincode || data.fullAddress)
+              )
+            );
           } else if (res.status === 404) {
             setForm(emptyForm);
             setHasExisting(false);
             setIsEditing(true);
           } else {
+            setErr(data?.error || data?.message || "Failed to load address.");
             setHasExisting(false);
             setIsEditing(true);
           }
         }
       } catch {
         if (!cancelled) {
+          setErr("Network error while loading address.");
           setHasExisting(false);
           setIsEditing(true);
         }
@@ -126,7 +176,6 @@ export default function AddressDetailsPage() {
   }, [form]);
 
   const isValid = Object.keys(errors).length === 0;
-
   const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
 
   // clamp pincode to digits (max 6)
@@ -146,13 +195,14 @@ export default function AddressDetailsPage() {
       address: true,
     });
     setMessage("");
+    setErr("");
     if (!isValid) return;
 
     try {
       setLoading(true);
-      const res = await fetch("/address", {
+      const res = await fetch(ENDPOINTS.ADDRESS, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           country: form.country,
           state: form.state,
@@ -163,17 +213,18 @@ export default function AddressDetailsPage() {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
-        const msg = data.message || "Address updated";
-        setMessage(msg);
+      if (res.status === 401) {
+        setErr(data?.message || "Unauthorized. Please login again.");
+      } else if (res.ok) {
+        setMessage(data?.message || "Address updated");
         setLastSaved(form);
         setHasExisting(true);
         setIsEditing(false);
       } else {
-        setMessage(data.error || "Something went wrong");
+        setErr(data?.error || data?.message || "Something went wrong");
       }
     } catch {
-      setMessage("Error connecting to server");
+      setErr("Error connecting to server");
     } finally {
       setLoading(false);
     }
@@ -182,6 +233,7 @@ export default function AddressDetailsPage() {
   const startEdit = () => {
     setIsEditing(true);
     setMessage("");
+    setErr("");
   };
 
   const cancelEdit = () => {
@@ -189,6 +241,7 @@ export default function AddressDetailsPage() {
     setTouched({});
     setIsEditing(false);
     setMessage("");
+    setErr("");
   };
 
   const inputBase =
@@ -214,6 +267,18 @@ export default function AddressDetailsPage() {
 
       <div className="px-10 py-2">
         <h2 className="text-lg font-bold mb-10">Address Details</h2>
+
+        {(err || message) && (
+          <div
+            className={`mb-4 text-sm px-3 py-2 rounded border ${
+              err
+                ? "text-red-700 bg-red-50 border-red-200"
+                : "text-green-700 bg-green-50 border-green-200"
+            }`}
+          >
+            {err || message}
+          </div>
+        )}
 
         {initialLoading ? (
           <p className="text-sm text-gray-600">Loading…</p>

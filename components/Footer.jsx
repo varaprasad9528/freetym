@@ -1,5 +1,19 @@
 import { Instagram, Facebook, Linkedin, Youtube } from "lucide-react";
 
+function PinterestIcon({ className = "" }) {
+  // Simple Pinterest "P" logo as SVG, styled via Tailwind classes
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 4.99 3.657 9.163 8.438 10.094-.12-.861-.23-2.19.05-3.128.25-.857 1.556-5.29 1.556-5.29s-.397-.794-.397-1.968c0-1.843 1.068-3.221 2.4-3.221 1.132 0 1.678.85 1.678 1.87 0 1.139-.724 2.84-1.098 4.423-.312 1.323.662 2.403 1.962 2.403 2.355 0 3.937-3.027 3.937-6.607 0-2.724-1.835-4.765-5.172-4.765-3.775 0-6.135 2.818-6.135 5.968 0 1.085.418 2.251.94 2.884.102.125.118.234.087.36-.095.394-.31 1.252-.352 1.426-.054.224-.176.272-.407.164-1.513-.705-2.46-2.915-2.46-4.693 0-3.819 2.777-7.326 8.01-7.326 4.206 0 7.476 2.996 7.476 6.997 0 4.179-2.635 7.544-6.294 7.544-1.229 0-2.385-.638-2.78-1.387l-.756 2.882c-.273 1.047-1.014 2.357-1.51 3.156C9.28 23.84 10.62 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" />
+    </svg>
+  );
+}
+
 export default function Footer() {
   return (
     <footer
@@ -9,26 +23,65 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto flex flex-col items-center text-center lg:text-left">
         {/* Top Section */}
         <div className="w-full flex flex-col lg:flex-row justify-between gap-16 mb-12">
-          {/* Logo & Socials */}
-          <div className="flex flex-col items-center lg:items-start w-full lg:w-1/4">
-            <img src="/freeTym_logo.svg" alt="Freetym" className="h-10 mb-4" />
-            <div className="flex gap-4 justify-center lg:justify-start">
-              <a href="#" aria-label="Instagram">
-                <Instagram className="w-5 h-5 text-[#111827] hover:text-gray-900" />
+          <div className="flex flex-col items-center lg:items-start">
+            {/* Logo */}
+            <img src="/freeTym_logo.svg" alt="Freetym" className="h-14 mb-4" />
+
+            {/* Icons row constrained to logo width */}
+            <div className="flex justify-between w-[220px]">
+              <a
+                href="https://www.instagram.com/freetymofficial/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="w-8 h-8 flex items-center justify-center border border-black rounded-md hover:bg-black hover:text-white transition"
+              >
+                <Instagram className="w-4 h-4" />
               </a>
-              <a href="#" aria-label="Facebook">
-                <Facebook className="w-5 h-5 text-[#111827] hover:text-gray-900" />
+
+              <a
+                href="https://www.facebook.com/freetymofficial"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                className="w-8 h-8 flex items-center justify-center border border-black rounded-md hover:bg-black hover:text-white transition"
+              >
+                <Facebook className="w-4 h-4" />
               </a>
-              <a href="#" aria-label="LinkedIn">
-                <Linkedin className="w-5 h-5 text-[#111827] hover:text-gray-900" />
+
+              <a
+                href="https://www.linkedin.com/company/freetymofficial/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="LinkedIn"
+                className="w-8 h-8 flex items-center justify-center border border-black rounded-md hover:bg-black hover:text-white transition"
+              >
+                <Linkedin className="w-4 h-4" />
               </a>
-              <a href="#" aria-label="YouTube">
-                <Youtube className="w-5 h-5 text-[#111827] hover:text-gray-900" />
+
+              <a
+                href="https://www.youtube.com/@FreetymOfficial"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="YouTube"
+                className="w-8 h-8 flex items-center justify-center border border-black rounded-md hover:bg-black hover:text-white transition"
+              >
+                <Youtube className="w-4 h-4" />
+              </a>
+
+              <a
+                href="https://in.pinterest.com/freetymofficial/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Pinterest"
+                className="w-8 h-8 flex items-center justify-center border border-black rounded-md hover:bg-black hover:text-white transition"
+              >
+                <PinterestIcon className="w-4 h-4" />
               </a>
             </div>
           </div>
 
-          {/* Footer Columns */}
+          {/* Footer Columns (unchanged) */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-8 w-full">
             {/* COMPANY */}
             <div>

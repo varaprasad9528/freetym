@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +11,58 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
+
+/* ---------- role → dashboard path ---------- */
+function pathForRole(role) {
+  const r = String(role || "")
+    .toLowerCase()
+    .trim();
+  if (r === "influencer") return "/signup/influencer/dashboard";
+  if (r === "agent") return "/signup/agent/dashboard";
+  if (r === "brand") return "/signup/brand/dashboard";
+  return "/dashboard"; // fallback
+}
+
+/* Try to read role from localStorage or from a JWT (token/authToken) */
+function getUserRole() {
+  if (typeof window === "undefined") return null;
+
+  // common keys you might be using elsewhere
+  const direct =
+    localStorage.getItem("role") ||
+    localStorage.getItem("userRole") ||
+    localStorage.getItem("user_type") ||
+    localStorage.getItem("type") ||
+    localStorage.getItem("accountType");
+
+  if (direct) return direct;
+
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
+  if (!token || token.split(".").length < 2) return null;
+
+  try {
+    const payload = token.split(".")[1];
+    const json = JSON.parse(
+      decodeURIComponent(
+        atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      )
+    );
+    return (
+      json?.role ||
+      json?.userRole ||
+      json?.user_type ||
+      json?.type ||
+      json?.accountType ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 
 const menu = [
   { label: "Personal Details", icon: <User size={18} />, href: "/profile" },
@@ -44,6 +97,13 @@ export default function ProfileLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Compute the logo destination on the client after we can read localStorage
+  const [logoHref, setLogoHref] = useState("/dashboard");
+  useEffect(() => {
+    const role = getUserRole();
+    setLogoHref(pathForRole(role));
+  }, []);
+
   const isActive = (href) => {
     const clean = (p) => (p.endsWith("/") && p !== "/" ? p.slice(0, -1) : p);
     const cur = clean(pathname);
@@ -53,11 +113,11 @@ export default function ProfileLayout({ children }) {
   };
 
   const handleLogout = () => {
-    // Clear stored auth/session data
+    // clear both, since different pages used different keys earlier
     localStorage.removeItem("authToken");
+    localStorage.removeItem("token");
     sessionStorage.clear();
-
-    // Redirect to landing page
+    document.cookie = "auth=; path=/; max-age=0; samesite=lax";
     router.push("/");
   };
 
@@ -72,9 +132,10 @@ export default function ProfileLayout({ children }) {
           {/* Logo + Profile title */}
           <div>
             <div className="h-16 flex items-center justify-center">
+              {/* Dynamic logo link based on role */}
               <Link
-                href="/profile"
-                aria-label="Go to Personal Details"
+                href={logoHref}
+                aria-label="Go to Dashboard"
                 className="inline-flex"
               >
                 <img
@@ -104,19 +165,19 @@ export default function ProfileLayout({ children }) {
                 />
               ))}
             </nav>
+
+            {/* Logout button below menu */}
+            <div className="mt-16">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 py-2 text-sm cursor-pointer transition duration-200 w-full border-t border-[#E0E0E0]"
+                style={{ paddingLeft: "50px", color: "#000" }}
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
           </div>
-
-          <div className="flex-1" />
-
-          {/* Logout button at bottom */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 py-2 text-sm cursor-pointer transition duration-200 w-full border-t border-[#E0E0E0] mt-4"
-            style={{ paddingLeft: "50px", color: "#000" }}
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
         </div>
       </aside>
 

@@ -1,10 +1,18 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
-/** Helper: optional token + userId plumbing.
- *  - If your backend reads userId from auth, you can remove X-User-Id.
- *  - If you store tokens, set Authorization header below.
- */
+/* =========================
+   BASE URL + HELPERS
+========================= */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000"
+).replace(/\/+$/, "");
+
+const abs = (path = "") =>
+  /^https?:\/\//i.test(path)
+    ? path
+    : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+
 function buildHeaders(extra = {}) {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -13,27 +21,38 @@ function buildHeaders(extra = {}) {
 
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(userId ? { "X-User-Id": userId } : {}), // remove if not needed server-side
+    ...(userId ? { "X-User-Id": userId } : {}),
     ...extra,
   };
 }
 
-const MAX_BYTES = 200 * 1024; // 200 KB
+/* =========================
+   VALIDATION HELPERS
+========================= */
+const MAX_BYTES = 200 * 1024;
 const allowedTypes = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "application/pdf",
 ];
+const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const aadhaarRegex = /^\d{12}$/;
+const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
+const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 
-// Simple validators
-const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/; // e.g., ABCDE1234F
-const aadhaarRegex = /^\d{12}$/; // 12 digits
-const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/i; // e.g., HDFC0001234
-const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/; // basic UPI check: something@bank
-
+/* =========================
+   PAGE
+========================= */
 export default function WalletPage() {
   const [activeTab, setActiveTab] = useState("kyc"); // 'kyc' | 'bank' | 'verify'
+
+  // KYC lock after first successful submit
+  const [kycLocked, setKycLocked] = useState(false);
+  const lockStyle =
+    "border-[#E5E5E5] bg-gray-50 text-gray-400 cursor-not-allowed";
+
+  // Agreement
   const [agreed, setAgreed] = useState(false);
 
   // --- KYC numbers + files ---
@@ -53,21 +72,18 @@ export default function WalletPage() {
     aadhaarFront: "",
     aadhaarBack: "",
     submit: "",
+    missing: [],
   });
   const [kycLoading, setKycLoading] = useState(false);
 
-  // --- Bank & UPI ---
+  // --- Bank & UPI (editable) ---
   const [bank, setBank] = useState({
     accountHolderName: "",
     accountNumber: "",
     bankName: "",
     ifscCode: "",
   });
-  const [upi, setUpi] = useState({
-    googlePay: "",
-    phonePe: "",
-    paytm: "",
-  });
+  const [upi, setUpi] = useState({ googlePay: "", phonePe: "", paytm: "" });
   const [bankErr, setBankErr] = useState({
     accountHolderName: "",
     accountNumber: "",
@@ -77,10 +93,11 @@ export default function WalletPage() {
     phonePe: "",
     paytm: "",
     submit: "",
+    missing: [],
   });
   const [bankLoading, setBankLoading] = useState(false);
 
-  // --- Status + Balance ---
+  // Status + Balance
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState({
     kyc: "KYC verification pending!",
@@ -99,35 +116,77 @@ export default function WalletPage() {
     kycStatus: "pending",
   });
 
-  // -------- Lifecycle: fetch status + balance --------
+  // Optional: profile check to hint missing token
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await fetch(abs("/api/profile"), { headers: buildHeaders() });
+        const pj = await p.json().catch(() => ({}));
+        if (pj?.message === "No token provided.") {
+          console.warn("Auth token missing. Wallet requests may fail.");
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Bootstrap: status + balance (+prefill)
   useEffect(() => {
     (async () => {
       try {
         setStatusLoading(true);
-        const res = await fetch("/api/wallet/kyc/status", {
+        const res = await fetch(abs("/api/wallet/kyc/status"), {
           headers: buildHeaders(),
         });
         const js = await res.json();
+
         if (js?.success) {
+          const submitted = !!js.data?.submitted;
+
           setStatusMsg({
+            submitted,
+            verified: !!js.data?.verified,
             kyc: js.data?.status || "KYC verification pending!",
+            submittedAt: js.data?.submittedAt || null,
             bank:
               js.data?.bankVerificationStatus ||
               "Bank details verification pending!",
-            submitted: !!js.data?.submitted,
-            verified: !!js.data?.verified,
-            submittedAt: js.data?.submittedAt || null,
           });
+          setKycLocked(submitted);
+
+          // Prefill if backend returns details
+          if (js.data?.pancard?.number || js.data?.aadhar?.number) {
+            setKycForm((p) => ({
+              pancardNumber:
+                js.data?.pancard?.number?.toUpperCase() || p.pancardNumber,
+              aadharNumber: js.data?.aadhar?.number || p.aadharNumber,
+            }));
+          }
+          if (js.data?.bankDetails) {
+            const b = js.data.bankDetails;
+            setBank((prev) => ({
+              accountHolderName: b.accountHolderName ?? prev.accountHolderName,
+              accountNumber: b.accountNumber ?? prev.accountNumber,
+              bankName: b.bankName ?? prev.bankName,
+              ifscCode: (b.ifscCode || prev.ifscCode || "").toUpperCase(),
+            }));
+          }
+          if (js.data?.upiDetails) {
+            const u = js.data.upiDetails;
+            setUpi((prev) => ({
+              googlePay: u.googlePay ?? prev.googlePay,
+              phonePe: u.phonePe ?? prev.phonePe,
+              paytm: u.paytm ?? prev.paytm,
+            }));
+          }
         }
-      } catch (e) {
-        // no-op UI; could show toast
+      } catch {
       } finally {
         setStatusLoading(false);
       }
 
       try {
         setBalanceLoading(true);
-        const res = await fetch("/api/wallet/balance", {
+        const res = await fetch(abs("/api/wallet/balance"), {
           headers: buildHeaders(),
         });
         const js = await res.json();
@@ -140,23 +199,19 @@ export default function WalletPage() {
             kycStatus: js.data?.kycStatus ?? "pending",
           });
         }
-      } catch (e) {
-        // no-op
+      } catch {
       } finally {
         setBalanceLoading(false);
       }
     })();
   }, []);
 
-  // -------- Handlers --------
+  /* ===== KYC handlers ===== */
   const handleFileChange = (key) => (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!allowedTypes.includes(file.type)) {
-      setKycErr((p) => ({
-        ...p,
-        [key]: "Allowed: JPG, JPEG, PNG, or PDF.",
-      }));
+      setKycErr((p) => ({ ...p, [key]: "Allowed: JPG, JPEG, PNG, or PDF." }));
       setFiles((p) => ({ ...p, [key]: null }));
       return;
     }
@@ -171,30 +226,37 @@ export default function WalletPage() {
 
   const validateKyc = () => {
     let ok = true;
-    const next = { ...kycErr, submit: "" };
+    const next = { ...kycErr, submit: "", missing: [] };
 
     if (!kycForm.pancardNumber || !panRegex.test(kycForm.pancardNumber)) {
       next.pancardNumber = "Enter a valid PAN (e.g., ABCDE1234F).";
+      next.missing.push("Valid PAN number");
       ok = false;
     } else next.pancardNumber = "";
 
     if (!kycForm.aadharNumber || !aadhaarRegex.test(kycForm.aadharNumber)) {
       next.aadharNumber = "Enter a valid 12-digit Aadhaar number.";
+      next.missing.push("Valid Aadhaar number");
       ok = false;
     } else next.aadharNumber = "";
 
     if (!files.pan) {
       next.pan = "PAN file is required.";
+      next.missing.push("PAN file");
       ok = false;
-    }
+    } else next.pan = "";
+
     if (!files.aadhaarFront) {
       next.aadhaarFront = "Aadhaar front image is required.";
+      next.missing.push("Aadhaar front image");
       ok = false;
-    }
+    } else next.aadhaarFront = "";
+
     if (!files.aadhaarBack) {
       next.aadhaarBack = "Aadhaar back image is required.";
+      next.missing.push("Aadhaar back image");
       ok = false;
-    }
+    } else next.aadhaarBack = "";
 
     setKycErr(next);
     return ok;
@@ -214,72 +276,80 @@ export default function WalletPage() {
       const fd = new FormData();
       fd.append("pancardNumber", kycForm.pancardNumber.toUpperCase());
       fd.append("aadharNumber", kycForm.aadharNumber);
-      fd.append("pancardImages", files.pan);
+      fd.append("pancardImage", files.pan);
       fd.append("aadharFront", files.aadhaarFront);
       fd.append("aadharBack", files.aadhaarBack);
 
-      const res = await fetch("/api/wallet/kyc", {
+      const res = await fetch(abs("/api/wallet/kyc"), {
         method: "POST",
-        headers: buildHeaders(), // form-data: don't set Content-Type
+        headers: buildHeaders(),
         body: fd,
       });
-      const js = await res.json();
-      if (js?.success) {
-        // Update status immediately to reflect "submitted"
-        setStatusMsg((s) => ({
-          ...s,
-          submitted: true,
-          verified: false,
-          kyc: "KYC verification pending!",
-          submittedAt: new Date().toISOString(),
-        }));
-        alert(
-          js.message ||
-            "KYC documents uploaded successfully. Verification pending."
-        );
-        setActiveTab("bank");
-      } else {
+
+      const ct = res.headers.get("content-type") || "";
+      const data = ct.includes("application/json")
+        ? await res.json()
+        : { success: false, message: await res.text() };
+
+      if (!res.ok || data.success === false) {
         setKycErr((p) => ({
           ...p,
-          submit:
-            js?.message || "Unable to upload KYC right now. Please try again.",
+          submit: data.message || `Server error ${res.status}`,
         }));
+        return;
       }
-    } catch (e) {
-      setKycErr((p) => ({
-        ...p,
-        submit: "Network error. Please try again.",
+
+      // success: lock KYC
+      setStatusMsg((s) => ({
+        ...s,
+        submitted: true,
+        verified: false,
+        kyc: "KYC verification pending!",
+        submittedAt: new Date().toISOString(),
       }));
+      setKycLocked(true);
+      alert(
+        data.message ||
+          "KYC documents uploaded successfully. Verification pending."
+      );
+      setActiveTab("bank");
+    } catch (e) {
+      setKycErr((p) => ({ ...p, submit: "Network error. Please try again." }));
     } finally {
       setKycLoading(false);
     }
   };
 
+  /* ===== Bank + UPI ===== */
   const validateBank = () => {
     let ok = true;
-    const next = { ...bankErr, submit: "" };
+    const next = { ...bankErr, submit: "", missing: [] };
 
     if (!bank.accountHolderName.trim()) {
       next.accountHolderName = "Account holder name is required.";
+      next.missing.push("Account holder name");
       ok = false;
     } else next.accountHolderName = "";
 
     if (!bank.accountNumber.trim()) {
       next.accountNumber = "Account number is required.";
+      next.missing.push("Account number");
       ok = false;
     } else next.accountNumber = "";
 
     if (!bank.bankName.trim()) {
       next.bankName = "Bank name is required.";
+      next.missing.push("Bank name");
       ok = false;
     } else next.bankName = "";
 
     if (!bank.ifscCode.trim() || !ifscRegex.test(bank.ifscCode)) {
       next.ifscCode = "Enter a valid IFSC (e.g., HDFC0001234).";
+      next.missing.push("Valid IFSC");
       ok = false;
     } else next.ifscCode = "";
 
-    // UPI IDs are optional, but if provided, validate format
+    // Optional UPIs
     next.googlePay =
       upi.googlePay && !upiRegex.test(upi.googlePay) ? "Invalid UPI ID." : "";
     next.phonePe =
@@ -308,7 +378,7 @@ export default function WalletPage() {
         paytm: upi.paytm.trim(),
       };
 
-      const res = await fetch("/api/wallet/kyc/bank-upi", {
+      const res = await fetch(abs("/api/wallet/kyc/bank-upi"), {
         method: "POST",
         headers: buildHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
@@ -317,7 +387,6 @@ export default function WalletPage() {
 
       if (js?.success) {
         alert(js.message || "Bank and UPI details submitted successfully");
-        // Reflect bank verification pending
         setStatusMsg((s) => ({
           ...s,
           bank: "Bank details verification pending!",
@@ -331,7 +400,7 @@ export default function WalletPage() {
             "All bank details (accountHolderName, accountNumber, bankName, ifscCode) are required.",
         }));
       }
-    } catch (e) {
+    } catch {
       setBankErr((p) => ({ ...p, submit: "Network error. Please try again." }));
     } finally {
       setBankLoading(false);
@@ -343,11 +412,14 @@ export default function WalletPage() {
     [balance.available, balance.locked]
   );
 
+  /* =========================
+     UI
+  ========================== */
   return (
     <div className="min-h-screen bg-[#FFF7F0]">
       {/* Header */}
       <div
-        className="flex items-center h-[64px] bg-white px-6"
+        className="flex items-center h-[50px] bg-white px-6"
         style={{ boxShadow: "0px 4px 4px 0px #00000040" }}
       >
         <h1 className="pl-10 font-semibold text-2xl leading-none">Wallet</h1>
@@ -377,15 +449,15 @@ export default function WalletPage() {
                 className={`border-t-2 w-8 ${
                   activeTab === t.id ? "border-[#F16623]" : "border-[#A1A1A1]"
                 }`}
-              ></span>
+              />
             </div>
           ))}
         </div>
 
-        {/* --- KYC TAB --- */}
+        {/* ===== KYC TAB ===== */}
         {activeTab === "kyc" && (
           <>
-            {/* Numbers */}
+            {/* PAN & Aadhaar */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className="block mb-2 text-sm font-semibold">
@@ -394,14 +466,19 @@ export default function WalletPage() {
                 <input
                   type="text"
                   placeholder="ABCDE1234F"
+                  maxLength={10}
                   value={kycForm.pancardNumber}
                   onChange={(e) =>
+                    !kycLocked &&
                     setKycForm((p) => ({
                       ...p,
-                      pancardNumber: e.target.value.toUpperCase(),
+                      pancardNumber: e.target.value.toUpperCase().slice(0, 10),
                     }))
                   }
-                  className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
+                  disabled={kycLocked}
+                  className={`w-full border rounded-lg px-4 py-2 text-sm ${
+                    kycLocked ? lockStyle : "border-[#E5E5E5]"
+                  }`}
                 />
                 {kycErr.pancardNumber && (
                   <p className="text-xs text-red-500 mt-1">
@@ -409,6 +486,7 @@ export default function WalletPage() {
                   </p>
                 )}
               </div>
+
               <div>
                 <label className="block mb-2 text-sm font-semibold">
                   Aadhaar Number
@@ -418,13 +496,19 @@ export default function WalletPage() {
                   placeholder="12-digit number"
                   value={kycForm.aadharNumber}
                   onChange={(e) =>
+                    !kycLocked &&
                     setKycForm((p) => ({
                       ...p,
-                      aadharNumber: e.target.value.replace(/\D/g, ""),
+                      aadharNumber: e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 12),
                     }))
                   }
                   maxLength={12}
-                  className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
+                  disabled={kycLocked}
+                  className={`w-full border rounded-lg px-4 py-2 text-sm ${
+                    kycLocked ? lockStyle : "border-[#E5E5E5]"
+                  }`}
                 />
                 {kycErr.aadharNumber && (
                   <p className="text-xs text-red-500 mt-1">
@@ -440,18 +524,26 @@ export default function WalletPage() {
                 <label className="block mb-2 text-sm font-semibold">
                   Upload PAN Card
                 </label>
-                <input
-                  id="panUpload"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="hidden"
-                  onChange={handleFileChange("pan")}
-                />
+                {!kycLocked && (
+                  <input
+                    id="panUpload"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="hidden"
+                    onChange={handleFileChange("pan")}
+                  />
+                )}
                 <label
-                  htmlFor="panUpload"
-                  className="w-full bg-white border border-[#E5E5E5] rounded-lg h-14 mb-2 flex items-center justify-center cursor-pointer"
+                  htmlFor={kycLocked ? "" : "panUpload"}
+                  className={`w-full bg-white border rounded-lg h-14 mb-2 flex items-center justify-center ${
+                    kycLocked ? lockStyle : "border-[#E5E5E5] cursor-pointer"
+                  }`}
                 >
-                  {files.pan ? files.pan.name : "Click here to upload"}
+                  {kycLocked
+                    ? "Already uploaded"
+                    : files.pan
+                    ? files.pan.name
+                    : "Click here to upload"}
                 </label>
                 {kycErr.pan && (
                   <p className="text-xs text-red-500 mb-2">{kycErr.pan}</p>
@@ -465,18 +557,24 @@ export default function WalletPage() {
                 <label className="block mb-2 text-sm font-semibold">
                   Upload Aadhaar (Front)
                 </label>
-                <input
-                  id="aadhaarFrontUpload"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="hidden"
-                  onChange={handleFileChange("aadhaarFront")}
-                />
+                {!kycLocked && (
+                  <input
+                    id="aadhaarFrontUpload"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="hidden"
+                    onChange={handleFileChange("aadhaarFront")}
+                  />
+                )}
                 <label
-                  htmlFor="aadhaarFrontUpload"
-                  className="w-full bg-white border border-[#E5E5E5] rounded-lg h-14 mb-2 flex items-center justify-center cursor-pointer"
+                  htmlFor={kycLocked ? "" : "aadhaarFrontUpload"}
+                  className={`w-full bg-white border rounded-lg h-14 mb-2 flex items-center justify-center ${
+                    kycLocked ? lockStyle : "border-[#E5E5E5] cursor-pointer"
+                  }`}
                 >
-                  {files.aadhaarFront
+                  {kycLocked
+                    ? "Already uploaded"
+                    : files.aadhaarFront
                     ? files.aadhaarFront.name
                     : "Click here to upload"}
                 </label>
@@ -494,18 +592,24 @@ export default function WalletPage() {
                 <label className="block mb-2 text-sm font-semibold">
                   Upload Aadhaar (Back)
                 </label>
-                <input
-                  id="aadhaarBackUpload"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="hidden"
-                  onChange={handleFileChange("aadhaarBack")}
-                />
+                {!kycLocked && (
+                  <input
+                    id="aadhaarBackUpload"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="hidden"
+                    onChange={handleFileChange("aadhaarBack")}
+                  />
+                )}
                 <label
-                  htmlFor="aadhaarBackUpload"
-                  className="w-full bg-white border border-[#E5E5E5] rounded-lg h-14 mb-2 flex items-center justify-center cursor-pointer"
+                  htmlFor={kycLocked ? "" : "aadhaarBackUpload"}
+                  className={`w-full bg-white border rounded-lg h-14 mb-2 flex items-center justify-center ${
+                    kycLocked ? lockStyle : "border-[#E5E5E5] cursor-pointer"
+                  }`}
                 >
-                  {files.aadhaarBack
+                  {kycLocked
+                    ? "Already uploaded"
+                    : files.aadhaarBack
                     ? files.aadhaarBack.name
                     : "Click here to upload"}
                 </label>
@@ -520,7 +624,12 @@ export default function WalletPage() {
               </div>
             </div>
 
-            {/* Terms + Actions */}
+            {!!kycErr.missing.length && (
+              <div className="mb-3 text-xs text-red-600">
+                Missing: {kycErr.missing.join(", ")}
+              </div>
+            )}
+
             <div className="mb-6">
               <label className="flex items-center text-xs">
                 <input
@@ -528,6 +637,7 @@ export default function WalletPage() {
                   className="mr-2"
                   checked={agreed}
                   onChange={(e) => setAgreed(e.target.checked)}
+                  disabled={kycLocked}
                 />
                 I have reviewed and accepted the Terms & Conditions and Privacy
                 Policy.
@@ -540,14 +650,20 @@ export default function WalletPage() {
               <div className="mt-4 flex gap-4 justify-center">
                 <button
                   onClick={submitKyc}
-                  disabled={kycLoading}
+                  disabled={kycLoading || kycLocked}
                   className={`px-6 py-2 rounded-md font-medium text-white ${
-                    kycLoading
+                    kycLocked
+                      ? "bg-gray-300 cursor-not-allowed"
+                      : kycLoading
                       ? "bg-[#F16623]/60 cursor-not-allowed"
                       : "bg-[#F16623] hover:opacity-90"
                   }`}
                 >
-                  {kycLoading ? "Uploading..." : "Save & Continue"}
+                  {kycLocked
+                    ? "KYC Submitted"
+                    : kycLoading
+                    ? "Uploading..."
+                    : "Save & Continue"}
                 </button>
               </div>
             </div>
@@ -561,11 +677,11 @@ export default function WalletPage() {
           </>
         )}
 
-        {/* --- BANK & UPI TAB --- */}
+        {/* ===== BANK & UPI TAB ===== */}
         {activeTab === "bank" && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-6 items-stretch">
-              {/* Bank (shifted right slightly as asked) */}
+              {/* Bank */}
               <div className="max-w-[380px] pl-8">
                 <h3 className="font-semibold mb-3">Add Bank Details</h3>
                 <div className="space-y-3">
@@ -585,6 +701,7 @@ export default function WalletPage() {
                       {bankErr.accountHolderName}
                     </p>
                   )}
+
                   <input
                     className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
                     placeholder="Account Number"
@@ -601,6 +718,7 @@ export default function WalletPage() {
                       {bankErr.accountNumber}
                     </p>
                   )}
+
                   <input
                     className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
                     placeholder="Bank Name"
@@ -612,6 +730,7 @@ export default function WalletPage() {
                   {bankErr.bankName && (
                     <p className="text-xs text-red-500">{bankErr.bankName}</p>
                   )}
+
                   <input
                     className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm uppercase"
                     placeholder="IFSC Code"
@@ -629,7 +748,7 @@ export default function WalletPage() {
                 </div>
               </div>
 
-              {/* OR Divider */}
+              {/* Divider */}
               <div className="relative hidden md:block self-stretch">
                 <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-[#E5E5E5]" />
                 <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#FFF7F0] px-2 text-xs font-semibold text-[#A1A1A1]">
@@ -637,7 +756,7 @@ export default function WalletPage() {
                 </span>
               </div>
 
-              {/* UPI (shifted right slightly as asked) */}
+              {/* UPI */}
               <div className="max-w-[380px] pl-8">
                 <h3 className="font-semibold mb-3">Add UPI</h3>
                 <div className="space-y-3">
@@ -652,6 +771,7 @@ export default function WalletPage() {
                   {bankErr.googlePay && (
                     <p className="text-xs text-red-500">{bankErr.googlePay}</p>
                   )}
+
                   <input
                     className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
                     placeholder="PhonePe (Enter UPI ID)"
@@ -663,6 +783,7 @@ export default function WalletPage() {
                   {bankErr.phonePe && (
                     <p className="text-xs text-red-500">{bankErr.phonePe}</p>
                   )}
+
                   <input
                     className="w-full border border-[#E5E5E5] rounded-lg px-4 py-2 text-sm"
                     placeholder="Paytm (Enter UPI ID)"
@@ -678,9 +799,13 @@ export default function WalletPage() {
               </div>
             </div>
 
-            {/* Submit & Nav */}
+            {!!bankErr.missing.length && (
+              <div className="mt-4 text-xs text-red-600">
+                Missing: {bankErr.missing.join(", ")}
+              </div>
+            )}
             {bankErr.submit && (
-              <p className="text-sm text-red-500 mt-4">{bankErr.submit}</p>
+              <p className="text-sm text-red-500 mt-2">{bankErr.submit}</p>
             )}
 
             <div className="mt-6 flex justify-between">
@@ -712,7 +837,7 @@ export default function WalletPage() {
           </>
         )}
 
-        {/* --- VERIFY TAB --- */}
+        {/* ===== VERIFY TAB ===== */}
         {activeTab === "verify" && (
           <>
             <h3 className="font-semibold mb-4">KYC and Bank Verification</h3>
@@ -746,7 +871,9 @@ export default function WalletPage() {
   );
 }
 
-/* Shared Wallet Balance */
+/* =========================
+   BALANCE WIDGET
+========================= */
 function WalletBalance({ loading, available, locked, total }) {
   return (
     <div className="mt-6">

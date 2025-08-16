@@ -14,6 +14,36 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+/* =================== API base + helpers =================== */
+function cleanBase(base) {
+  const b = (base || "http://localhost:5000").replace(/\/+$/, "");
+  try {
+    const u = new URL(b.includes("://") ? b : `http://${b}`);
+    return u.origin; // e.g., http://localhost:5000
+  } catch {
+    return "http://localhost:5000";
+  }
+}
+const API_BASE = cleanBase(process.env.NEXT_PUBLIC_API_BASE);
+
+function authHeaders(extra = {}) {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+const ENDPOINTS = {
+  PLANS: `${API_BASE}/api/subscription/plans`,
+  HISTORY: `${API_BASE}/api/subscription/history`,
+  ORDER: `${API_BASE}/api/subscription/order`,
+  VERIFY: `${API_BASE}/api/subscription/verify`,
+  CANCEL: (id) =>
+    `${API_BASE}/api/subscription/cancel/${encodeURIComponent(id)}`,
+};
+
 /* =================== Page =================== */
 export default function SubscriptionPage() {
   const [tab, setTab] = useState("Subscription Plan");
@@ -35,6 +65,10 @@ export default function SubscriptionPage() {
   const [histLoading, setHistLoading] = useState(false);
   const [histErr, setHistErr] = useState("");
 
+  // Modal (history card details)
+  const [selectedSub, setSelectedSub] = useState(null); // normalized history item
+  const closeModal = () => setSelectedSub(null);
+
   // fetch plans when entering Plan tab
   useEffect(() => {
     if (tab !== "Subscription Plan") return;
@@ -42,10 +76,14 @@ export default function SubscriptionPage() {
       try {
         setPlansErr("");
         setPlansLoading(true);
-        const res = await fetch("/api/subscription/plans", { method: "GET" });
+        const res = await fetch(ENDPOINTS.PLANS, {
+          method: "GET",
+          headers: authHeaders(),
+          cache: "no-store",
+          mode: "cors",
+        });
         if (!res.ok) throw new Error("Failed to load plans");
         const data = await res.json();
-        // Expecting: { plans: [...] }
         setPlans(Array.isArray(data?.plans) ? data.plans : []);
       } catch (e) {
         setPlansErr(e.message || "Unable to load plans");
@@ -65,10 +103,14 @@ export default function SubscriptionPage() {
     try {
       setHistErr("");
       setHistLoading(true);
-      const res = await fetch("/api/subscription/history", { method: "GET" });
+      const res = await fetch(ENDPOINTS.HISTORY, {
+        method: "GET",
+        headers: authHeaders(),
+        cache: "no-store",
+        mode: "cors",
+      });
       if (!res.ok) throw new Error("Failed to load history");
       const data = await res.json();
-      // Expecting: array of subscriptions
       setHistory(Array.isArray(data) ? data : data?.items || []);
     } catch (e) {
       setHistErr(e.message || "Unable to load history");
@@ -82,9 +124,9 @@ export default function SubscriptionPage() {
     setLastOrder(null);
     try {
       setOrdering(true);
-      const res = await fetch("/api/subscription/order", {
+      const res = await fetch(ENDPOINTS.ORDER, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ planId }),
       });
       const data = await res.json().catch(() => ({}));
@@ -92,7 +134,6 @@ export default function SubscriptionPage() {
         setMessage(data?.message || "Order creation failed");
         return;
       }
-      // Store order for verify step. Assume API returns { orderId, ... }
       setLastOrder({ orderId: data?.orderId, planId, raw: data });
       setMessage("Order created. Complete payment and click Verify.");
     } catch {
@@ -107,10 +148,9 @@ export default function SubscriptionPage() {
     setMessage("");
     try {
       setVerifying(true);
-      const res = await fetch("/api/subscription/verify", {
+      const res = await fetch(ENDPOINTS.VERIFY, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // if your gateway sends extra fields (signature, paymentId), add them here
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ orderId: lastOrder.orderId }),
       });
       const data = await res.json().catch(() => ({}));
@@ -119,7 +159,6 @@ export default function SubscriptionPage() {
         return;
       }
       setMessage(data?.message || "Payment verified successfully");
-      // refresh history after successful verify
       await reloadHistory();
       setLastOrder(null);
       setTab("Subscription history");
@@ -134,10 +173,10 @@ export default function SubscriptionPage() {
     if (!subscriptionId) return;
     setMessage("");
     try {
-      const res = await fetch(
-        `/api/subscription/cancel/${encodeURIComponent(subscriptionId)}`,
-        { method: "PUT" }
-      );
+      const res = await fetch(ENDPOINTS.CANCEL(subscriptionId), {
+        method: "PUT",
+        headers: authHeaders(),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMessage(data?.message || "Cancel failed");
@@ -145,6 +184,7 @@ export default function SubscriptionPage() {
       }
       setMessage(data?.message || "Subscription canceled");
       await reloadHistory();
+      closeModal(); // close popup after success
     } catch {
       setMessage("Network error while canceling");
     }
@@ -224,8 +264,15 @@ export default function SubscriptionPage() {
           items={history}
           loading={histLoading}
           error={histErr}
-          onCancel={onCancel}
+          onCardClick={setSelectedSub} // <<< open modal with this item
         />
+      )}
+
+      {/* ===== Popup Modal (history item details) ===== */}
+      {selectedSub && (
+        <Modal onClose={closeModal}>
+          <HistoryModalContent item={selectedSub} onCancel={onCancel} />
+        </Modal>
       )}
     </div>
   );
@@ -244,14 +291,11 @@ function PlanView({
   onVerify,
   verifying,
 }) {
-  // Fallback UI if your API returns custom names/prices
   const normalizedPlans = useMemo(() => {
     if (!Array.isArray(plans) || plans.length === 0) return [];
-    // Try to normalize each plan
     return plans.map((p, i) => ({
       id: p.id || p.planId || p._id || String(i + 1),
       name: p.name || p.title || "Plan",
-      // support monthly/annual keys if present
       priceAnnual:
         p.priceAnnual ?? p.annualPrice ?? p.yearly ?? p.priceYearly ?? null,
       priceMonthly:
@@ -277,7 +321,7 @@ function PlanView({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left card: if API has a first plan, show it; else show a pretty default "Dynamic" */}
+        {/* Left card: API first plan or default */}
         <PlanCard
           plan={
             normalizedPlans[0] || {
@@ -328,7 +372,7 @@ function PlanView({
           )}
         />
 
-        {/* Right card: second plan or default "Compee" with billing toggle */}
+        {/* Right card: API second plan or default with toggle */}
         <PlanCard
           plan={
             normalizedPlans[1] || {
@@ -484,8 +528,8 @@ function FeatureList({ features }) {
   );
 }
 
-/* =================== Subscription History View =================== */
-function HistoryView({ items, loading, error, onCancel }) {
+/* =================== Subscription History View + Modal =================== */
+function HistoryView({ items, loading, error, onCardClick }) {
   return (
     <div className="px-6 py-6">
       {loading && <div className="text-sm text-gray-700">Loading history…</div>}
@@ -496,7 +540,6 @@ function HistoryView({ items, loading, error, onCancel }) {
 
       <div className="space-y-5">
         {items?.map((it, idx) => {
-          // normalize attributes from your API
           const subscriptionId =
             it.subscriptionId || it.id || it._id || it.subId || String(idx + 1);
           const status = (it.status || it.currentStatus || "").toLowerCase();
@@ -504,17 +547,15 @@ function HistoryView({ items, loading, error, onCancel }) {
             status === "current" || status === "active" || it.isActive === true;
 
           const name = it.name || it.planName || "Subscription";
+          const amount = it.price || it.amount || it.displayPrice || null;
           const price =
-            it.price ||
-            it.amount ||
-            it.displayPrice ||
-            (it.interval === "year" && it.amount
-              ? `₹${it.amount}/year`
-              : null) ||
-            (it.interval === "month" && it.amount
-              ? `₹${it.amount}/month`
-              : null) ||
-            "";
+            amount && it.interval
+              ? it.interval === "year"
+                ? `₹${amount}/year`
+                : `₹${amount}/month`
+              : amount
+              ? `₹${amount}`
+              : "";
 
           const start =
             it.start ||
@@ -529,13 +570,27 @@ function HistoryView({ items, loading, error, onCancel }) {
             it.endDate ||
             (it.endedAt ? formatDate(it.endedAt) : undefined);
 
+          // build a normalized object for the modal
+          const normalized = {
+            id: subscriptionId,
+            name,
+            price,
+            isCurrent,
+            status: status || (isCurrent ? "current" : "expired"),
+            start,
+            renews,
+            end,
+          };
+
           return (
-            <div
+            <button
               key={subscriptionId}
-              className="bg-white rounded-xl border border-[#E7E7E7] px-5 py-4"
+              type="button"
+              onClick={() => onCardClick(normalized)}
+              className="w-full text-left bg-white rounded-xl border border-[#E7E7E7] px-5 py-4 hover:shadow-md transition"
             >
               <div className="flex items-start justify-between gap-4">
-                {/* Left: title + price + status chip */}
+                {/* Left: title + price + chip */}
                 <div>
                   {isCurrent && (
                     <span className="inline-block text-[10px] font-bold tracking-wide bg-[#4C4DDC] text-white rounded-full px-2.5 py-1 mb-2">
@@ -548,23 +603,11 @@ function HistoryView({ items, loading, error, onCancel }) {
                   )}
                 </div>
 
-                {/* Right: action / status */}
-                <div className="pt-2 flex items-center gap-2">
-                  {isCurrent ? (
-                    <>
-                      <button
-                        className="px-4 py-2 rounded-md bg-[#F16623] text-white font-semibold text-xs"
-                        type="button"
-                        onClick={() => onCancel(subscriptionId)}
-                      >
-                        CANCEL
-                      </button>
-                    </>
-                  ) : (
-                    <span className="px-4 py-2 rounded-md bg-[#F16623] text-white font-semibold text-xs inline-block">
-                      {status ? status.toUpperCase() : "EXPIRED"}
-                    </span>
-                  )}
+                {/* Right: status badge */}
+                <div className="pt-2">
+                  <span className="px-4 py-2 rounded-md bg-[#F16623] text-white font-semibold text-xs inline-block">
+                    {isCurrent ? "MANAGE" : (status || "expired").toUpperCase()}
+                  </span>
                 </div>
               </div>
 
@@ -590,10 +633,101 @@ function HistoryView({ items, loading, error, onCancel }) {
                   )
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* ===== Modal container and content (same file) ===== */
+function Modal({ children, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className="relative z-10 w-[90%] max-w-sm rounded-lg bg-white shadow-xl p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-500 hover:text-black"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HistoryModalContent({ item, onCancel }) {
+  const { id, name, price, isCurrent, start, renews, end } = item;
+  const endOrRenews = isCurrent ? renews : end;
+
+  return (
+    <div>
+      {isCurrent && (
+        <span className="inline-block text-[10px] font-bold tracking-wide bg-[#4C4DDC] text-white rounded-full px-2.5 py-1 mb-2">
+          CURRENT PLAN
+        </span>
+      )}
+
+      <div className="text-lg font-semibold">{name}</div>
+      {price && <div className="text-base font-semibold mt-1">{price}</div>}
+
+      <div className="mt-3 text-sm space-y-1">
+        {start && (
+          <div>
+            <span className="text-gray-600">Start date: </span>
+            {start}
+          </div>
+        )}
+        {isCurrent && renews ? (
+          <div>
+            <span className="text-gray-600">Renews: </span>
+            {renews}
+          </div>
+        ) : (
+          end && (
+            <div>
+              <span className="text-gray-600">End date: </span>
+              {end}
+            </div>
+          )
+        )}
+      </div>
+
+      {endOrRenews && (
+        <div className="mt-3 text-xs text-gray-600">
+          Your plan will {isCurrent ? "renew" : "end"} on <b>{endOrRenews}</b>
+        </div>
+      )}
+
+      {isCurrent ? (
+        <>
+          <button
+            type="button"
+            onClick={() => onCancel(id)}
+            className="w-full mt-4 bg-[#F16623] hover:bg-[#d95312] text-white px-4 py-2 rounded-md font-semibold"
+          >
+            Cancel Subscription
+          </button>
+          <p className="text-[11px] text-gray-500 mt-2 text-center">
+            Note: No refund will be issued upon cancellation.
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -646,7 +780,6 @@ function formatDate(d) {
   try {
     const date = new Date(d);
     if (isNaN(date)) return d;
-    // e.g., 1 Aug, 2025
     return date.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
