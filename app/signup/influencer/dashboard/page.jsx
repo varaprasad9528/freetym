@@ -108,10 +108,25 @@ export default function InfluencerDashboard() {
 
   return (
     <div className="bg-[#FFF8F0] w-full min-h-screen">
-      {/* Top Header */}
-      <header className="h-14 bg-black text-white flex items-center justify-center text-sm font-semibold">
-        Content Goes Here (if any)
+      {/* Header */}
+      <header>
+        <div
+          className="flex items-center h-[50px] bg-white px-6"
+          style={{ boxShadow: "0px 4px 4px 0px #00000040" }}
+        >
+          <h1
+            style={{
+              fontFamily: "Poppins, sans-serif",
+              fontWeight: 600,
+              fontSize: "24px",
+              lineHeight: "100%",
+              margin: 0,
+              paddingLeft: "40px",
+            }}
+          ></h1>
+        </div>
       </header>
+
       {/* Inner Content */}
       <main className="p-12 pl-24">
         <h2 className="text-xl font-semibold mb-2">
@@ -234,24 +249,8 @@ export default function InfluencerDashboard() {
           </div>
         </div>
 
-        {/* Show account selection only after platform picked and NOT added */}
-        {selectedPlatform && !accountAdded && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-2">
-              Select account
-            </label>
-            <div className="relative w-full max-w-md">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-8 pr-4 py-2 border rounded-md focus:outline-none"
-                value={account}
-                onChange={handleAccountSelect}
-              />
-              <span className="absolute left-2 top-2.5 text-gray-400">🔍</span>
-            </div>
-          </div>
-        )}
+        {/* (Optional) If you still want the type-to-open modal, add an input and bind handleAccountSelect */}
+        {/* <input value={account} onChange={handleAccountSelect} className="border px-3 py-2 rounded" placeholder="Search..." /> */}
 
         {/* After account is added, show My Accounts */}
         {accountAdded && (

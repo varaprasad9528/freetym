@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+/* ====== Config (uses env) ====== */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000"
+).replace(/\/+$/, ""); // strip trailing slashes
+
+const ENDPOINTS = {
+  PROFILE_GET: `${API_BASE}/api/profile`,
+  PROFILE_PUT: `${API_BASE}/api/profile/personal-details`,
+};
+
 const relationshipOptions = [
   "Single",
   "In a relationship",
@@ -81,7 +91,7 @@ export default function ProfilePage() {
       }
 
       try {
-        const r = await fetch("/api/profile", {
+        const r = await fetch(ENDPOINTS.PROFILE_GET, {
           method: "GET",
           headers: buildAuthHeaders(),
         });
@@ -112,7 +122,6 @@ export default function ProfilePage() {
         setForm(mapped);
         setOriginal(mapped);
 
-        //  after fetch, only lock if server already has some data
         const hasData =
           mapped.firstName ||
           mapped.lastName ||
@@ -208,7 +217,7 @@ export default function ProfilePage() {
 
     try {
       setSaving(true);
-      const r = await fetch("/api/profile/personal-details", {
+      const r = await fetch(ENDPOINTS.PROFILE_PUT, {
         method: "PUT",
         headers: buildAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
@@ -431,7 +440,6 @@ export default function ProfilePage() {
 
           {/* Bottom actions */}
           <div className="flex items-center justify-center gap-3 mt-2">
-            {/* First-time / no data: show Save only */}
             {!hasServerData && editMode && (
               <button
                 onClick={onSave}
@@ -446,7 +454,6 @@ export default function ProfilePage() {
               </button>
             )}
 
-            {/* After data exists */}
             {hasServerData && !editMode && (
               <button
                 onClick={onEdit}

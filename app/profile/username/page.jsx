@@ -1,6 +1,16 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
+/* ====== Config (uses env) ====== */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000"
+).replace(/\/+$/, ""); // strip trailing slashes
+
+const ENDPOINTS = {
+  PROFILE_GET: `${API_BASE}/api/profile`,
+  USERNAME_PUT: `${API_BASE}/api/profile/username`,
+};
+
 function buildAuthHeaders(extra = {}) {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -37,7 +47,7 @@ export default function UsernamePage() {
       }
 
       try {
-        const r = await fetch("/api/profile", {
+        const r = await fetch(ENDPOINTS.PROFILE_GET, {
           headers: buildAuthHeaders(),
         });
         const js = await r.json();
@@ -96,7 +106,7 @@ export default function UsernamePage() {
 
     try {
       setSubmitting(true);
-      const r = await fetch("/api/profile/username", {
+      const r = await fetch(ENDPOINTS.USERNAME_PUT, {
         method: "PUT",
         headers: buildAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ username }),

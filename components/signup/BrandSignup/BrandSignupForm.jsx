@@ -122,7 +122,7 @@ export default function BrandSignupPage() {
   const locations = ["Delhi", "Mumbai", "Bangalore", "Hyderabad"];
 
   // Regex
-  const nameRegex = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+  const nameRegex = /^[A-Za-z ]{3,35}$/;
   const emailRegex = /\S+@\S+\.\S+/;
 
   // Password rules
@@ -190,9 +190,10 @@ export default function BrandSignupPage() {
       if (name === "fullName") {
         if (!v.trim()) next.fullName = "Full Name is required";
         else if (!nameRegex.test(v.trim()))
-          next.fullName = "Only letters and single spaces allowed";
+          next.fullName = "Name must be 3–35 letters (only alphabets & spaces)";
         else delete next.fullName;
       }
+
       if (name === "companyName") {
         if (!v.trim()) next.companyName = "Company Name is required";
         else delete next.companyName;
@@ -361,9 +362,9 @@ export default function BrandSignupPage() {
   // Validate before submit
   const validate = () => {
     const errs = {};
-    if (!form.fullName) errs.fullName = "Full Name is required";
+    if (!form.fullName.trim()) errs.fullName = "Full Name is required";
     else if (!nameRegex.test(form.fullName.trim()))
-      errs.fullName = "Only letters and single spaces allowed";
+      errs.fullName = "Name must be 3–35 letters (only alphabets & spaces)";
 
     if (!form.companyName) errs.companyName = "Company Name is required";
 
@@ -425,7 +426,7 @@ export default function BrandSignupPage() {
             name="fullName"
             value={form.fullName}
             onChange={handleChange}
-            placeholder="Full Name (letters only)"
+            placeholder="Full Name"
             className={`w-full h-8 px-3 mb-2 border rounded-[8px] text-sm ${disabledStyle(
               unlock.nameCompany
             )}`}

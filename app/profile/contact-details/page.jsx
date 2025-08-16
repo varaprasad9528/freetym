@@ -2,16 +2,17 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+/* ====== Config (uses env) ====== */
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000"
+).replace(/\/+$/, ""); // strip trailing slashes
 
-/**
- * Adjust these 4 endpoints if your backend paths differ.
- * You already shared the email send endpoint; verify endpoints are inferred.
- */
-const EMAIL_SEND_URL = `${API_BASE}/api/auth/register/email`; // POST {name,email,role}
-const EMAIL_VERIFY_URL = `${API_BASE}/api/auth/register/email/verify`; // POST {name,role,otp,email}
-const PHONE_SEND_URL = `${API_BASE}/api/auth/register/phone`; // POST {phone,email}
-const PHONE_VERIFY_URL = `${API_BASE}/api/auth/register/phone/verify`; // POST {email,phone,otp}
+const ENDPOINTS = {
+  EMAIL_SEND: `${API_BASE}/api/auth/register/email`, // POST {name,email,role}
+  EMAIL_VERIFY: `${API_BASE}/api/auth/register/email/verify`, // POST {name,role,otp,email}
+  PHONE_SEND: `${API_BASE}/api/auth/register/phone`, // POST {phone,email}
+  PHONE_VERIFY: `${API_BASE}/api/auth/register/phone/verify`, // POST {email,phone,otp}
+};
 
 const DEFAULT_NAME = "Test Influencer";
 const ROLE = "influencer";
@@ -24,12 +25,12 @@ function VerifiedPill() {
   );
 }
 
-function VerifyPill({ onClick, loading }) {
+function VerifyPill({ onClick, loading, disabled }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className="bg-[#F16623] text-white text-xs font-semibold rounded-full px-4 py-1 flex items-center gap-1 ml-2 disabled:opacity-60"
     >
       {loading ? "Sending..." : "Verify"}
@@ -56,13 +57,18 @@ export default function ContactDetailsPage() {
 
   const fullPhone = whatsDigits ? `+91${whatsDigits}` : "";
 
+  // simple validation
+  const isEmailValid = /^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(email.trim());
+  const isPhoneValid = whatsDigits.length === 10;
+
   // --- API calls ---
   const sendEmailOtp = async () => {
     try {
+      if (!isEmailValid) throw new Error("Enter a valid email");
       setErr("");
       setMsg("");
       setSending((s) => ({ ...s, email: true }));
-      const res = await fetch(EMAIL_SEND_URL, {
+      const res = await fetch(ENDPOINTS.EMAIL_SEND, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: DEFAULT_NAME, email, role: ROLE }),
@@ -80,10 +86,12 @@ export default function ContactDetailsPage() {
 
   const verifyEmailOtp = async () => {
     try {
+      if (!otp) throw new Error("Enter the OTP");
+      if (!isEmailValid) throw new Error("Enter a valid email");
       setErr("");
       setMsg("");
       setVerifying(true);
-      const res = await fetch(EMAIL_VERIFY_URL, {
+      const res = await fetch(ENDPOINTS.EMAIL_VERIFY, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: DEFAULT_NAME, role: ROLE, otp, email }),
@@ -104,11 +112,11 @@ export default function ContactDetailsPage() {
 
   const sendWhatsappOtp = async () => {
     try {
-      if (!fullPhone) throw new Error("Enter WhatsApp number");
+      if (!isPhoneValid) throw new Error("Enter a valid 10-digit number");
       setErr("");
       setMsg("");
       setSending((s) => ({ ...s, whatsapp: true }));
-      const res = await fetch(PHONE_SEND_URL, {
+      const res = await fetch(ENDPOINTS.PHONE_SEND, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone, email }),
@@ -126,11 +134,12 @@ export default function ContactDetailsPage() {
 
   const verifyWhatsappOtp = async () => {
     try {
-      if (!fullPhone) throw new Error("Enter WhatsApp number");
+      if (!isPhoneValid) throw new Error("Enter a valid 10-digit number");
+      if (!otp) throw new Error("Enter the OTP");
       setErr("");
       setMsg("");
       setVerifying(true);
-      const res = await fetch(PHONE_VERIFY_URL, {
+      const res = await fetch(ENDPOINTS.PHONE_VERIFY, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, phone: fullPhone, otp }),
@@ -151,14 +160,9 @@ export default function ContactDetailsPage() {
 
   const handleOtpVerify = (e) => {
     e.preventDefault();
-    if (!otpMode || !otp) return;
     if (otpMode === "email") return verifyEmailOtp();
     if (otpMode === "whatsapp") return verifyWhatsappOtp();
   };
-
-  // simple validation
-  const isEmailValid = /^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(email.trim());
-  const isPhoneValid = whatsDigits.length === 10;
 
   return (
     <div>
@@ -222,6 +226,7 @@ export default function ContactDetailsPage() {
                 <VerifyPill
                   onClick={sendWhatsappOtp}
                   loading={sending.whatsapp}
+                  disabled={!isPhoneValid}
                 />
               )}
             </div>
@@ -250,7 +255,11 @@ export default function ContactDetailsPage() {
               {verified.email ? (
                 <VerifiedPill />
               ) : (
-                <VerifyPill onClick={sendEmailOtp} loading={sending.email} />
+                <VerifyPill
+                  onClick={sendEmailOtp}
+                  loading={sending.email}
+                  disabled={!isEmailValid}
+                />
               )}
             </div>
             {!verified.email && email && !isEmailValid && (

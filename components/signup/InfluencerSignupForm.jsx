@@ -54,11 +54,149 @@ function OtpPopup({
   );
 }
 
+function SearchableSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Select…",
+  disabled = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useMemo(() => ({ current: null }), []);
+
+  const filtered = options.filter((opt) =>
+    opt.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setHighlight(0);
+    }
+  }, [open]);
+
+  const commit = (val) => {
+    onChange?.(val);
+    setOpen(false);
+  };
+
+  return (
+    <div
+      className={`relative ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+      ref={(el) => (wrapRef.current = el)}
+    >
+      {/* Input / button */}
+      <div
+        className={`flex items-center h-9 px-3 border rounded-[10px] text-sm bg-white ${
+          disabled ? "pointer-events-none" : "cursor-text"
+        }`}
+        onClick={() => !disabled && setOpen(true)}
+      >
+        <input
+          type="text"
+          className="w-full outline-none bg-transparent placeholder:text-gray-400"
+          placeholder={value ? value : placeholder}
+          value={query}
+          onChange={(e) => {
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+            setHighlight(0);
+          }}
+          onFocus={() => !disabled && setOpen(true)}
+          onKeyDown={(e) => {
+            if (!open) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setHighlight((h) =>
+                Math.min(h + 1, Math.max(filtered.length - 1, 0))
+              );
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlight((h) => Math.max(h - 1, 0));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              if (filtered.length) commit(filtered[highlight]);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+        {value && (
+          <button
+            type="button"
+            className="ml-2 text-gray-400 hover:text-gray-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              commit("");
+            }}
+            aria-label="Clear"
+            title="Clear"
+          >
+            ×
+          </button>
+        )}
+        <span className="ml-2 pointer-events-none">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-gray-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </span>
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border rounded-[10px] shadow-lg max-h-56 overflow-auto">
+          {filtered.length ? (
+            filtered.map((opt, i) => (
+              <div
+                key={opt}
+                className={`px-3 py-2 text-sm cursor-pointer ${
+                  i === highlight ? "bg-indigo-50" : ""
+                }`}
+                onMouseEnter={() => setHighlight(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  commit(opt);
+                }}
+              >
+                {opt}
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InfluencerSignupForm() {
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    phone: "", // store ONLY 10 digits here
+    phone: "",
     gender: "",
     dob: "",
     location: "",
@@ -88,13 +226,33 @@ export default function InfluencerSignupForm() {
 
   const genders = ["Male", "Female", "Other"];
   const locations = ["Delhi", "Mumbai", "Bangalore", "Hyderabad"];
-  const languages = ["English", "Hindi", "Telugu", "Tamil"];
+
+  // ✅ Languages with search (your list + English)
+  const languages = [
+    "English",
+    "Bengali",
+    "Dogri",
+    "Gujarati",
+    "Hindi",
+    "Kannada",
+    "Kashmiri",
+    "Konkani",
+    "Malayalam",
+    "Manipuri",
+    "Marathi",
+    "Nepali",
+    "Odia",
+    "Punjabi",
+    "Tamil",
+    "Telugu",
+    "Urdu",
+  ];
 
   // TODAY for DOB max
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   // Regex / checks
-  const nameRegex = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+  const nameRegex = /^[A-Za-z ]{3,35}$/;
   const emailRegex = /\S+@\S+\.\S+/;
 
   const hasMinLen = form.password.length >= 8;
@@ -105,7 +263,6 @@ export default function InfluencerSignupForm() {
   const isPasswordValid =
     hasMinLen && hasUpper && hasLower && hasNumber && hasSpecial;
 
-  // validators for unlocking
   const isNameValid = useMemo(
     () => nameRegex.test(form.fullName.trim()),
     [form.fullName]
@@ -125,7 +282,6 @@ export default function InfluencerSignupForm() {
   const isConfirmValid =
     form.confirmPassword && form.confirmPassword === form.password;
 
-  // unlock logic
   const unlock = {
     name: true,
     email: isNameValid,
@@ -138,14 +294,10 @@ export default function InfluencerSignupForm() {
     submit: form.termsAccepted,
   };
 
-  // change handler
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     let v = type === "checkbox" ? checked : value;
-
-    if (name === "phone") {
-      v = String(v).replace(/\D/g, "").slice(0, 10);
-    }
+    if (name === "phone") v = String(v).replace(/\D/g, "").slice(0, 10);
 
     setForm((prev) => ({ ...prev, [name]: v }));
 
@@ -155,7 +307,7 @@ export default function InfluencerSignupForm() {
       if (name === "fullName") {
         if (!v.trim()) next.fullName = "Full Name is required";
         else if (!nameRegex.test(v.trim()))
-          next.fullName = "Only letters and spaces allowed (no numbers)";
+          next.fullName = "Name must be 3–35 letters (only alphabets & spaces)";
         else delete next.fullName;
       }
 
@@ -209,18 +361,14 @@ export default function InfluencerSignupForm() {
     return () => clearInterval(id);
   }, [showPhoneOtpPopup, phoneOtpTimer]);
 
-  // API calls wired to your backend contracts
-
-  // 1) Register Email (get OTP)
-  // POST http://localhost:5000/api/auth/register/email
-  // body: { name, email, role: "influencer" }
+  // API calls (unchanged)
   const sendEmailOtp = async () => {
     try {
       const res = await fetch(`${BASE}/api/auth/register/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.fullName, // maps to "name"
+          name: form.fullName,
           email: form.email,
           role: "influencer",
         }),
@@ -239,8 +387,6 @@ export default function InfluencerSignupForm() {
     await sendEmailOtp();
   };
 
-  // 2) Verify Email OTP
-  // body: { name, role, otp, email }
   const verifyEmailOtp = async () => {
     try {
       const res = await fetch(`${BASE}/api/auth/register/email/verify`, {
@@ -265,9 +411,6 @@ export default function InfluencerSignupForm() {
     }
   };
 
-  // 3) Register Phone (get OTP)
-  // POST .../api/auth/register/phone
-  // body: { phone: "+91xxxxxxxxxx", email }
   const sendPhoneOtp = async () => {
     try {
       const res = await fetch(`${BASE}/api/auth/register/phone`, {
@@ -289,8 +432,6 @@ export default function InfluencerSignupForm() {
     await sendPhoneOtp();
   };
 
-  // 4) Verify Phone OTP
-  // body: { email, phone: "+91xxxxxxxxxx", otp }
   const verifyPhoneOtp = async () => {
     try {
       const res = await fetch(`${BASE}/api/auth/register/phone/verify`, {
@@ -311,12 +452,11 @@ export default function InfluencerSignupForm() {
     }
   };
 
-  // Final submit validation
   const validate = () => {
     const errs = {};
-    if (!form.fullName) errs.fullName = "Full Name is required";
+    if (!form.fullName.trim()) errs.fullName = "Full Name is required";
     else if (!nameRegex.test(form.fullName.trim()))
-      errs.fullName = "Only letters and spaces allowed (no numbers)";
+      errs.fullName = "Name must be 3–35 letters (only alphabets & spaces)";
 
     if (!form.email) errs.email = "Email is required";
     else if (!emailRegex.test(form.email.trim()))
@@ -347,9 +487,6 @@ export default function InfluencerSignupForm() {
     return errs;
   };
 
-  // 5) Influencer Registration
-  // POST .../api/auth/register/influencer
-  // body: { fullName, phone:"+91...", email, password, confirmPassword, gender, dob, location, language, termsAccepted:"true" }
   const completeRegistration = async () => {
     try {
       const payload = {
@@ -359,10 +496,10 @@ export default function InfluencerSignupForm() {
         password: form.password,
         confirmPassword: form.confirmPassword,
         gender: form.gender,
-        dob: form.dob, // YYYY-MM-DD
+        dob: form.dob,
         location: form.location,
         language: form.language,
-        termsAccepted: String(!!form.termsAccepted), // "true" / "false"
+        termsAccepted: String(!!form.termsAccepted),
       };
 
       const res = await fetch(`${BASE}/api/auth/register/influencer`, {
@@ -546,16 +683,25 @@ export default function InfluencerSignupForm() {
                 </option>
               ))}
             </select>
-            <input
-              type="date"
-              name="dob"
-              value={form.dob}
-              onChange={handleChange}
-              className="pretty-date w-1/2 h-9 px-3 border rounded-[10px] text-sm"
-              max={today}
-              disabled={!unlock.genderDob}
-            />
+
+            <div className="dob-wrap relative w-1/2">
+              {!form.dob && (
+                <span className="dob-ph pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  DOB
+                </span>
+              )}
+              <input
+                type="date"
+                name="dob"
+                value={form.dob}
+                onChange={handleChange}
+                className="pretty-date w-full h-9 px-3 border rounded-[10px] text-sm"
+                max={today}
+                disabled={!unlock.genderDob}
+              />
+            </div>
           </div>
+
           {(errors.gender || errors.dob) && (
             <div className="mb-2">
               {errors.gender && (
@@ -567,37 +713,34 @@ export default function InfluencerSignupForm() {
             </div>
           )}
 
-          {/* Location + Language */}
+          {/* Location (Searchable) + Language (Searchable) */}
           <div className={`flex gap-4 mb-2 ${disabledStyle(unlock.locLang)}`}>
-            <select
-              name="location"
-              value={form.location}
-              onChange={handleChange}
-              className="w-1/2 h-9 px-3 border rounded-[10px] text-sm"
-              disabled={!unlock.locLang}
-            >
-              <option value="">Location</option>
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
-            <select
-              name="language"
-              value={form.language}
-              onChange={handleChange}
-              className="w-1/2 h-9 px-3 border rounded-[10px] text-sm"
-              disabled={!unlock.locLang}
-            >
-              <option value="">Language</option>
-              {languages.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang}
-                </option>
-              ))}
-            </select>
+            <div className="w-1/2">
+              <SearchableSelect
+                options={locations}
+                value={form.location}
+                disabled={!unlock.locLang}
+                placeholder="Location"
+                onChange={(val) =>
+                  setForm((prev) => ({ ...prev, location: val }))
+                }
+              />
+            </div>
+
+            {/* ✅ Language is now a searchable dropdown */}
+            <div className="w-1/2">
+              <SearchableSelect
+                options={languages}
+                value={form.language}
+                disabled={!unlock.locLang}
+                placeholder="Language"
+                onChange={(val) =>
+                  setForm((prev) => ({ ...prev, language: val }))
+                }
+              />
+            </div>
           </div>
+
           {(errors.location || errors.language) && (
             <div className="mb-2">
               {errors.location && (
@@ -801,7 +944,6 @@ export default function InfluencerSignupForm() {
           </ul>
         </div>
 
-        {/* Styled-JSX: Date input polish + calendar icon */}
         <style jsx>{`
           input.pretty-date {
             appearance: none;
@@ -813,6 +955,12 @@ export default function InfluencerSignupForm() {
             background-repeat: no-repeat;
             background-position: right 10px center;
           }
+          .dob-wrap input.pretty-date {
+            padding-left: 36px;
+          }
+          .dob-wrap .dob-ph {
+            z-index: 10;
+          }
           input.pretty-date::-webkit-calendar-picker-indicator {
             cursor: pointer;
             opacity: 0;
@@ -823,6 +971,14 @@ export default function InfluencerSignupForm() {
           }
           input.pretty-date::-webkit-datetime-edit {
             padding: 0.25rem 0 0.25rem 0;
+          }
+          input.pretty-date[value=""]::-webkit-datetime-edit,
+          input.pretty-date[value=""]::-webkit-datetime-edit-text,
+          input.pretty-date[value=""]::-webkit-datetime-edit-month-field,
+          input.pretty-date[value=""]::-webkit-datetime-edit-day-field,
+          input.pretty-date[value=""]::-webkit-datetime-edit-year-field {
+            color: transparent;
+            -webkit-text-fill-color: transparent;
           }
         `}</style>
       </div>

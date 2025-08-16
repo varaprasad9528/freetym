@@ -3,7 +3,7 @@ export default function MoneyCalculatorPage() {
     <div className="min-h-screen bg-[#FFF7F0]">
       {/* Header with box-shadow */}
       <div
-        className="flex items-center h-[64px] bg-white px-6"
+        className="flex items-center h-[50px] bg-white px-6"
         style={{ boxShadow: "0px 4px 4px 0px #00000040" }}
       >
         <h1
