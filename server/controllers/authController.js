@@ -97,7 +97,7 @@ function isValidPhone(phone) {
 // validate password 
 
 function isValidPassword(password) {
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,12}$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
   return passwordRegex.test(password);
 }
 
@@ -110,9 +110,9 @@ function validatePassword(password) {
     errors.push("Minimum 8 characters required.");
   }
   //need to comment this 
-  if (password.length > 12) {
-    errors.push("Maximum 12 characters allowed.");
-  }
+  // if (password.length > 12) {
+  //   errors.push("Maximum 12 characters allowed.");
+  // }
   if (!/[a-z]/.test(password)) {
     errors.push("At least one lowercase letter required.");
   }
@@ -543,7 +543,7 @@ exports.registerBrand = async (req, res) => {
     const {
       fullName,
       companyName,
-      businessEmail,
+      email,
       phone,
       password,
       confirmPassword,
@@ -554,7 +554,7 @@ exports.registerBrand = async (req, res) => {
     if (
       !fullName ||
       !companyName ||
-      !businessEmail ||
+      !email ||
       !phone ||
       !password ||
       !confirmPassword ||
@@ -582,7 +582,7 @@ exports.registerBrand = async (req, res) => {
     if (password !== confirmPassword)
       return res.status(400).json({ message: "Passwords do not match." });
     const emailOtp = await Otp.findOne({
-      email: businessEmail,
+      email: email,
       type: "email",
       verified: true,
     });
@@ -594,7 +594,7 @@ exports.registerBrand = async (req, res) => {
     if (!emailOtp || !phoneOtp)
       return res.status(400).json({ message: "OTP verification required." });
     const existing = await User.findOne({
-      $or: [{ email: businessEmail }, { phone }],
+      $or: [{ email: email }, { phone }],
     });
     if (existing)
       return res.status(400).json({ message: "User already exists." });
@@ -607,7 +607,7 @@ exports.registerBrand = async (req, res) => {
     const user = await User.create({
       name: fullName,
       companyName,
-      email: businessEmail,
+      email,
       phone,
       password: hashed,
       role: "brand",
@@ -616,7 +616,7 @@ exports.registerBrand = async (req, res) => {
       termsAccepted,
       status: "approved",
     });
-    await Otp.deleteMany({ $or: [{ email: businessEmail }, { phone }] });
+    await Otp.deleteMany({ $or: [{ email:email }, { phone }] });
     res.json({
       message: "Registration successful. Please login.",
     });
@@ -634,7 +634,7 @@ exports.registerAgency = async (req, res) => {
     const {
       fullName,
       companyName,
-      businessEmail,
+      email,
       phone,
       password,
       confirmPassword,
@@ -644,7 +644,7 @@ exports.registerAgency = async (req, res) => {
     if (
       !fullName ||
       !companyName ||
-      !businessEmail ||
+      !email ||
       !phone ||
       !password ||
       !confirmPassword ||
@@ -671,7 +671,7 @@ exports.registerAgency = async (req, res) => {
     if (password !== confirmPassword)
       return res.status(400).json({ message: "Passwords do not match." });
     const emailOtp = await Otp.findOne({
-      email: businessEmail,
+      email: email,
       type: "email",
       verified: true,
     });
@@ -683,7 +683,7 @@ exports.registerAgency = async (req, res) => {
     if (!emailOtp || !phoneOtp)
       return res.status(400).json({ message: "OTP verification required." });
     const existing = await User.findOne({
-      $or: [{ email: businessEmail }, { phone }],
+      $or: [{ email: email }, { phone }],
     });
     if (existing)
       return res.status(400).json({ message: "User already exists." });
@@ -696,7 +696,7 @@ exports.registerAgency = async (req, res) => {
     const user = await User.create({
       name: fullName,
       companyName,
-      email: businessEmail,
+      email: email,
       phone,
       password: hashed,
       role: "agency",
@@ -704,7 +704,7 @@ exports.registerAgency = async (req, res) => {
       termsAccepted,
       status: "approved",
     });
-    await Otp.deleteMany({ $or: [{ email: businessEmail }, { phone }] });
+    await Otp.deleteMany({ $or: [{ email: email }, { phone }] });
     res.json({
       message: "Registration successful. Please login.",
     });

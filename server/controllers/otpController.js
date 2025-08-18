@@ -68,7 +68,8 @@ exports.sendWhatsappOtp = async (req, res) => {
   const otp = generateOtp();
   await Otp.deleteMany({ phone, type: 'whatsapp' });
   await Otp.create({ phone, otp, type: 'whatsapp', expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
-  await sendWhatsappOtp(phone, otp);
+  // await sendWhatsappOtp(phone, otp);
+  console.log(otp)
   res.json({ message: 'OTP sent to WhatsApp.' });
 };
 

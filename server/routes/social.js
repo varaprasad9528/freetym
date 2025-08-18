@@ -77,6 +77,7 @@ router.post('/youtube/content',
 router.post('/youtube/refresh', auth(['influencer']), youtubeController.refreshAnalytics);
 // to add the youtube reels by clickig a buttton 
 router.post('/youtube/import-reels',auth(['influencer']), youtubeController.importReelsAsReelModel.bind(youtubeController));
+
 // Content Management Routes
 router.get('/content', auth(['influencer']), async (req, res) => {
   try {
