@@ -215,7 +215,7 @@ exports.verifyEmailOtp = async (req, res) => {
         .status(400)
         .json({ message: "Invalid OTP format. It must be a 6-digit number." });
     }
-
+    console.log(name,role,email, otp)
     const record = await Otp.findOne({
       email,
       otp,
@@ -229,7 +229,7 @@ exports.verifyEmailOtp = async (req, res) => {
     record.verified = true;
     await record.save();
     const Enquiryform = await Enquiry.findOne({ email });
-
+    console.log(role)
     if (Enquiryform) {
       Enquiryform.name = name || Enquiryform.name;
       Enquiryform.role = role || Enquiryform.role;
@@ -244,6 +244,7 @@ exports.verifyEmailOtp = async (req, res) => {
       });
       await newEntry.save();
     }
+    console.log("Verified")
     return res
       .status(200)
       .json({ success: true, message: "Email OTP verified successfully." });
@@ -256,32 +257,86 @@ exports.verifyEmailOtp = async (req, res) => {
 
 // registerning the mobile number (Sending otp)
 
+// exports.registerPhone = async (req, res) => {
+//   try {
+//     const { phone, email } = req.body;
+//     if (!phone || !email)
+//       return res.status(400).json({ message: "Phone and email are required." });
+//     if (!isValidPhone(phone)) {
+//       return res
+//         .status(400)
+//         .json({ message: "Invalid phone number. Must be 10 digits." });
+//     }
+//     console.log(email)
+//     const emailOtp = await Otp.findOne({
+//       email,
+//       type: "email",
+//       verified: true,
+//     });
+//     console.log(emailOtp)
+//     if (!emailOtp)
+//       return res.status(400).json({ message: "Email OTP not verified." });
+
+//     // commented enquiry 
+//     // const enquiry = await Enquiry.findOne({ email });
+
+//     // enquiry.phone = phone;
+
+//     // await enquiry.save();
+
+//     const otp = generateOtp();
+//     await Otp.deleteMany({ phone, type: "whatsapp" });
+//     await Otp.create({
+//       phone,
+//       otp,
+//       type: "whatsapp",
+//       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+//     });
+//     console.log(otp);
+//     // Try to send WhatsApp OTP, fallback to console log if service unavailable
+//     try {
+//       await sendWhatsappOtp(phone, otp);
+//     } catch (whatsappError) {
+//       console.log("WhatsApp OTP service unavailable, using console fallback");
+//       console.log(`WhatsApp OTP for ${phone}: ${otp}`);
+//     }
+//     res.json({ message: "OTP sent to WhatsApp." });
+//   } catch (err) {
+//     res
+//       .status(500)
+//       .json({ message: "Error sending WhatsApp OTP", error: err.message });
+//   }
+// };
+
 exports.registerPhone = async (req, res) => {
   try {
     const { phone, email } = req.body;
     if (!phone || !email)
       return res.status(400).json({ message: "Phone and email are required." });
+
     if (!isValidPhone(phone)) {
       return res
         .status(400)
         .json({ message: "Invalid phone number. Must be 10 digits." });
     }
-    console.log(email)
+
+    console.log(email);
+
     const emailOtp = await Otp.findOne({
       email,
       type: "email",
       verified: true,
     });
-    console.log(emailOtp)
+    console.log(emailOtp);
+
     if (!emailOtp)
       return res.status(400).json({ message: "Email OTP not verified." });
 
-    // commented enquiry 
-    // const enquiry = await Enquiry.findOne({ email });
-
-    // enquiry.phone = phone;
-
-    // await enquiry.save();
+    // 🔹 Check if phone already exists in Enquiry (or replace with your User model)
+    const existingUser = await Enquiry.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({ message: "Phone number already exists." });
+    }
 
     const otp = generateOtp();
     await Otp.deleteMany({ phone, type: "whatsapp" });
@@ -291,14 +346,16 @@ exports.registerPhone = async (req, res) => {
       type: "whatsapp",
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
+
     console.log(otp);
-    // Try to send WhatsApp OTP, fallback to console log if service unavailable
+
     try {
       await sendWhatsappOtp(phone, otp);
     } catch (whatsappError) {
       console.log("WhatsApp OTP service unavailable, using console fallback");
       console.log(`WhatsApp OTP for ${phone}: ${otp}`);
     }
+
     res.json({ message: "OTP sent to WhatsApp." });
   } catch (err) {
     res
@@ -543,7 +600,7 @@ exports.registerBrand = async (req, res) => {
     const {
       fullName,
       companyName,
-      email,
+      businessEmail,
       phone,
       password,
       confirmPassword,
@@ -554,7 +611,7 @@ exports.registerBrand = async (req, res) => {
     if (
       !fullName ||
       !companyName ||
-      !email ||
+      !businessEmail ||
       !phone ||
       !password ||
       !confirmPassword ||
@@ -582,7 +639,7 @@ exports.registerBrand = async (req, res) => {
     if (password !== confirmPassword)
       return res.status(400).json({ message: "Passwords do not match." });
     const emailOtp = await Otp.findOne({
-      email: email,
+      email: businessEmail,
       type: "email",
       verified: true,
     });
@@ -594,20 +651,20 @@ exports.registerBrand = async (req, res) => {
     if (!emailOtp || !phoneOtp)
       return res.status(400).json({ message: "OTP verification required." });
     const existing = await User.findOne({
-      $or: [{ email: email }, { phone }],
+      $or: [{ email: businessEmail }, { phone }],
     });
     if (existing)
       return res.status(400).json({ message: "User already exists." });
     const hashed = await bcrypt.hash(password, 10);
     const enquiry = await Enquiry.findOneAndUpdate(
-      { email },
+      { email:businessEmail },
       { status: "registered" },
       { new: true }
     );
     const user = await User.create({
       name: fullName,
       companyName,
-      email,
+      email:businessEmail,
       phone,
       password: hashed,
       role: "brand",
@@ -616,7 +673,7 @@ exports.registerBrand = async (req, res) => {
       termsAccepted,
       status: "approved",
     });
-    await Otp.deleteMany({ $or: [{ email:email }, { phone }] });
+    await Otp.deleteMany({ $or: [{ email:businessEmail }, { phone }] });
     res.json({
       message: "Registration successful. Please login.",
     });
@@ -634,17 +691,18 @@ exports.registerAgency = async (req, res) => {
     const {
       fullName,
       companyName,
-      email,
+      businessEmail,
       phone,
       password,
       confirmPassword,
       location,
       termsAccepted,
     } = req.body;
+    console.log(req.body)
     if (
       !fullName ||
       !companyName ||
-      !email ||
+      !businessEmail ||
       !phone ||
       !password ||
       !confirmPassword ||
@@ -671,7 +729,7 @@ exports.registerAgency = async (req, res) => {
     if (password !== confirmPassword)
       return res.status(400).json({ message: "Passwords do not match." });
     const emailOtp = await Otp.findOne({
-      email: email,
+      email: businessEmail,
       type: "email",
       verified: true,
     });
@@ -683,20 +741,20 @@ exports.registerAgency = async (req, res) => {
     if (!emailOtp || !phoneOtp)
       return res.status(400).json({ message: "OTP verification required." });
     const existing = await User.findOne({
-      $or: [{ email: email }, { phone }],
+      $or: [{ email: businessEmail }, { phone }],
     });
     if (existing)
       return res.status(400).json({ message: "User already exists." });
     const hashed = await bcrypt.hash(password, 10);
     const enquiry = await Enquiry.findOneAndUpdate(
-      { email },
+      { email:businessEmail },
       { status: "registered" },
       { new: true }
     );
     const user = await User.create({
       name: fullName,
       companyName,
-      email: email,
+      email: businessEmail,
       phone,
       password: hashed,
       role: "agency",
@@ -704,7 +762,7 @@ exports.registerAgency = async (req, res) => {
       termsAccepted,
       status: "approved",
     });
-    await Otp.deleteMany({ $or: [{ email: email }, { phone }] });
+    await Otp.deleteMany({ $or: [{ email: businessEmail }, { phone }] });
     res.json({
       message: "Registration successful. Please login.",
     });

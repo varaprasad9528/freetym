@@ -6,7 +6,7 @@ const reelsController = require('../controllers/reelsController');
 // Public reels endpoints (no auth required for viewing)
 router.get('/', reelsController.getReels);
 // get trending reels 
-router.get('/trending', reelsController.getTrendingReels);
+// router.get('/trending', reelsController.getTrendingReels);
 
 // trending reels with all the filters 
 router.get('/trending', reelsController.getTrending);

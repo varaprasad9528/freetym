@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import ForgotPasswordModal from "./ForgotPasswordModal";
+// import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginModal({ open, onClose }) {
   const router = useRouter();
