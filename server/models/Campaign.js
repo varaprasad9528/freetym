@@ -2,17 +2,17 @@ const mongoose = require('mongoose');
 
 const campaignSchema = new mongoose.Schema({
   brand: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  brandName: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String },
   budget: { type: Number },
-  targetAudience: { type: String },
+  targetAudience: [{ type: String }],
   startDate: { type: Date },
   endDate: { type: Date },
   status: { type: String, enum: ['active', 'closed'], default: 'active' },
   applications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Application' }],
   
-  // NEW: Enhanced Campaign Management
   influencers: [{
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     status: { 
@@ -39,14 +39,20 @@ const campaignSchema = new mongoose.Schema({
     completedAt: { type: Date }
   }],
   
-  // Campaign requirements
   requirements: {
-    platforms: [{ type: String, enum: ['instagram', 'youtube', 'tiktok'] }],
+    industries: [{ type: String }],  
     minFollowers: { type: Number },
     maxFollowers: { type: Number },
-    categories: [{ type: String }],
+    
+    
+    socialMedia: {
+      platforms: [ {type: String}],
+      region: { type: String },  
+    },
+    
     deliverables: [{ type: String }]
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Campaign', campaignSchema); 
+const Campaign = mongoose.model('Campaign', campaignSchema);
+module.exports = Campaign;

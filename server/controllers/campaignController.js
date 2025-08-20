@@ -4,28 +4,9 @@ const Subscription = require('../models/Subscription');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 
-// exports.createCampaign = async (req, res) => {
-//   try {
-//     const { title, description, category, budget, targetAudience, startDate, endDate } = req.body;
-//     const campaign = await Campaign.create({
-//       brand: req.user.userId,
-//       title, description, category, budget, targetAudience, startDate, endDate
-//     });
-//     // Increment usageCount
-//     await Subscription.findByIdAndUpdate(req.subscription._id, { $inc: { usageCount: 1 } });
-//     res.status(201).json(campaign);
-//   } catch (err) {
-//     res.status(400).json({ message: 'Error creating campaign', error: err.message });
-//   }
-// };
-
 exports.createCampaign = async (req, res) => {
   try {
-    const { title, description, category, budget, targetAudience, startDate, endDate } = req.body;
-
-    // Create the campaign
-    const campaign = await Campaign.create({
-      brand: req.user.userId,
+    const {
       title,
       description,
       category,
@@ -33,18 +14,77 @@ exports.createCampaign = async (req, res) => {
       targetAudience,
       startDate,
       endDate,
+      industries,
+      socialMedia,
+      deliverables,
+    } = req.body;
+    
+    const brand = await User.findById(req.user.userId);
+    if (!brand) {
+      return res.status(404).json({ message: 'Brand not found' });
+    }
+    
+    const audience = Array.isArray(targetAudience) ? targetAudience : [targetAudience];
+    
+    const campaign = await Campaign.create({
+      brand: req.user.userId,  
+      brandName: brand.name,    
+      title,
+      description,
+      category,
+      budget,
+      targetAudience: audience,
+      startDate,
+      endDate,
+      requirements: {
+        industries,    
+        socialMedia,   
+        deliverables,   
+      }
     });
 
     // Increment the usageCount for the active subscription
-    await Subscription.findOneAndUpdate(
-  { userId: req.user.userId, status: 'active', endDate: { $gt: new Date() } },
-  { $inc: { usageCount: 1 } }
-);
+    // await Subscription.findOneAndUpdate(
+    //   { userId: req.user.userId, status: 'active', endDate: { $gt: new Date() } },
+    //   { $inc: { usageCount: 1 } }
+    // );
+    
     res.status(201).json(campaign);
   } catch (err) {
     res.status(400).json({ message: 'Error creating campaign', error: err.message });
   }
 };
+
+exports.createCampaigns = async (req, res) => {
+  try {
+    const campaignsData = req.body; // An array of campaign objects
+
+    // Ensure the brand (User) exists by ID
+    const brand = await User.findById(req.user.userId);
+    if (!brand) {
+      return res.status(404).json({ message: 'Brand not found' });
+    }
+
+    // Ensure targetAudience is an array
+    const audience = Array.isArray(req.body.targetAudience) ? req.body.targetAudience : [req.body.targetAudience];
+
+    // Map through each campaign and insert into the database
+    const campaigns = await Campaign.insertMany(campaignsData.map(campaign => ({
+      brand: req.user.userId,   // The logged-in user's ID as brand
+      brandName: brand.name,     // The brand's name from the User model
+      ...campaign,               // Spread the campaign data from the request
+      targetAudience: audience   // Set the targetAudience correctly
+    })));
+
+    res.status(201).json({ message: 'Campaigns created successfully', campaigns });
+  } catch (err) {
+    console.error('Error creating campaigns:', err);
+    res.status(400).json({ message: 'Error creating campaigns', error: err.message });
+  }
+};
+
+
+
 exports.updateCampaign = async (req, res) => {
   const campaign = await Campaign.findOneAndUpdate({ _id: req.params.id, brand: req.user.userId }, req.body, { new: true });
   if (!campaign) return res.status(404).json({ message: 'Campaign not found.' });

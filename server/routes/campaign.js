@@ -5,7 +5,9 @@ const brandPlanLimit = require('../middleware/brandPlanLimit');
 const campaignController = require('../controllers/campaignController');
 
 // Brand: create campaign (plan limit)
-router.post('/', auth(['brand']), brandPlanLimit, campaignController.createCampaign);
+// router.post('/', auth(['brand']), brandPlanLimit, campaignController.createCampaign);
+router.post('/', auth(['brand']), campaignController.createCampaign);
+router.post('/bulk', auth(['brand']), campaignController.createCampaigns);
 // Brand: update/delete own campaign
 router.put('/:id', auth(['brand']), campaignController.updateCampaign);
 router.delete('/:id', auth(['brand']), campaignController.deleteCampaign);

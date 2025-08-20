@@ -150,13 +150,13 @@ exports.registerEmail = async (req, res) => {
         .status(400)
         .json({ message: "Disposable email addresses are not allowed." });
     }
-    // if (role === "influencer") {
-    //   if (!isAllowedPersonalEmail(email)) {
-    //     return res
-    //       .status(400)
-    //       .json({ message: "Please use a valid personal email domain." });
-    //   }
-    // }
+    if (role === "influencer") {
+      if (!isAllowedPersonalEmail(email)) {
+        return res
+          .status(400)
+          .json({ message: "Please use a valid personal gmail." });
+      }
+    }
     const existing = await User.findOne({ email });
     if (existing)
       return res.status(400).json({ message: "Email already registered." });
@@ -215,6 +215,7 @@ exports.verifyEmailOtp = async (req, res) => {
         .status(400)
         .json({ message: "Invalid OTP format. It must be a 6-digit number." });
     }
+    
     console.log(name,role,email, otp)
     const record = await Otp.findOne({
       email,
