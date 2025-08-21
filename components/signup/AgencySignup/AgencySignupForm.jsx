@@ -8,6 +8,15 @@ import LoginModal from "@/components/LoginModal";
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
 const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 
+// safe JSON reader
+async function readJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 const testimonials = [
   {
     text: "Freetym delivers clear, transparent results, and is highly recommended!",
@@ -40,6 +49,54 @@ const testimonials = [
     position: "Senior Marketing Specialist",
   },
 ];
+
+// Inline OTP popup component (scoped)
+function OtpPopup({
+  open,
+  onClose,
+  onVerify,
+  otp,
+  setOtp,
+  timer,
+  onResend,
+  type,
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+        <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
+        <input
+          type="text"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          className="w-full border rounded px-3 py-2 mb-4"
+          placeholder="Enter OTP"
+        />
+        <div className="flex justify-between items-center mb-4">
+          <button
+            className="bg-blue-600 text-white px-4 py-1 rounded"
+            onClick={onVerify}
+          >
+            Verify
+          </button>
+          <button className="text-gray-500 underline" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+        <div className="text-sm text-gray-700 flex items-center justify-between">
+          {timer > 0 ? (
+            <span>Resend in {timer}s</span>
+          ) : (
+            <button className="text-blue-600 underline" onClick={onResend}>
+              Resend OTP
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AgencySignupPage() {
   const [form, setForm] = useState({
@@ -124,6 +181,25 @@ export default function AgencySignupPage() {
     return () => clearInterval(id);
   }, [showPhoneOtpPopup, phoneOtpTimer]);
 
+  // clear “verify” errors if flag becomes true (belt & suspenders)
+  useEffect(() => {
+    if (emailOtpVerified) {
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [emailOtpVerified]);
+
+  useEffect(() => {
+    if (phoneOtpVerified) {
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [phoneOtpVerified]);
+
   // handlers
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -149,11 +225,15 @@ export default function AgencySignupPage() {
         else if (!emailRegex.test(v.trim()))
           next.businessEmail = "Enter a valid email address";
         else delete next.businessEmail;
+        // clear server-side taken error when editing
+        delete next.businessEmailTaken;
       }
       if (name === "phone") {
         if (!v) next.phone = "Phone is required";
         else if (v.length !== 10) next.phone = "Enter 10-digit number";
         else delete next.phone;
+        // clear server-side taken error when editing
+        delete next.phoneTaken;
       }
       if (name === "location") {
         if (!v) next.location = "Location is required";
@@ -175,6 +255,7 @@ export default function AgencySignupPage() {
 
   // API: Email OTP (role: "agency")
   const sendEmailOtp = async () => {
+    if (!isEmailValid) return;
     try {
       const res = await fetch(API("/api/auth/register/email"), {
         method: "POST",
@@ -185,13 +266,39 @@ export default function AgencySignupPage() {
           role: "agency",
         }),
       });
-      if (!res.ok) throw new Error("Failed to send email OTP");
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            businessEmailTaken: "Email already registered",
+          }));
+          setEmailOtpSent(false);
+          setShowEmailOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          businessEmailTaken: data?.message || "Failed to send email OTP",
+        }));
+        return;
+      }
+
+      setErrors((e) => {
+        const { businessEmailTaken, ...rest } = e;
+        return rest;
+      });
       setEmailOtpSent(true);
       setShowEmailOtpPopup(true);
       setEmailOtpTimer(60);
-      alert("Email OTP sent!");
-    } catch (e) {
-      alert(e.message || "Error sending email OTP");
+    } catch {
+      setErrors((e) => ({
+        ...e,
+        businessEmailTaken: "Failed to send email OTP",
+      }));
     }
   };
 
@@ -211,16 +318,26 @@ export default function AgencySignupPage() {
         }),
       });
       if (!res.ok) throw new Error("Invalid OTP");
+
       setEmailOtpVerified(true);
       setShowEmailOtpPopup(false);
-      alert("Email verified!");
+
+      // clear “verify email” error
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
+      });
     } catch (e) {
-      alert(e.message || "Invalid Email OTP");
+      setErrors((er) => ({
+        ...er,
+        emailOtp: e.message || "Invalid Email OTP",
+      }));
     }
   };
 
   // Phone OTP (always send +91 + email)
   const sendPhoneOtp = async () => {
+    if (form.phone.length !== 10) return;
     try {
       const res = await fetch(API("/api/auth/register/phone"), {
         method: "POST",
@@ -230,13 +347,36 @@ export default function AgencySignupPage() {
           email: form.businessEmail,
         }),
       });
-      if (!res.ok) throw new Error("Failed to send phone OTP");
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            phoneTaken: "Mobile number already registered",
+          }));
+          setPhoneOtpSent(false);
+          setShowPhoneOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          phoneTaken: data?.message || "Failed to send phone OTP",
+        }));
+        return;
+      }
+
+      setErrors((e) => {
+        const { phoneTaken, ...rest } = e;
+        return rest;
+      });
       setPhoneOtpSent(true);
       setShowPhoneOtpPopup(true);
       setPhoneOtpTimer(60);
-      alert("Phone OTP sent!");
-    } catch (e) {
-      alert(e.message || "Error sending phone OTP");
+    } catch {
+      setErrors((e) => ({ ...e, phoneTaken: "Failed to send phone OTP" }));
     }
   };
   const resendPhoneOtp = async () => sendPhoneOtp();
@@ -253,11 +393,20 @@ export default function AgencySignupPage() {
         }),
       });
       if (!res.ok) throw new Error("Invalid OTP");
+
       setPhoneOtpVerified(true);
       setShowPhoneOtpPopup(false);
-      alert("Phone verified!");
+
+      // clear “verify phone” error
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
     } catch (e) {
-      alert(e.message || "Invalid Phone OTP");
+      setErrors((er) => ({
+        ...er,
+        phoneOtp: e.message || "Invalid Phone OTP",
+      }));
     }
   };
 
@@ -286,10 +435,12 @@ export default function AgencySignupPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      alert("Registration successful. Please login.");
       router.push("/login");
     } catch (e) {
-      alert(e.message || "Registration failed");
+      setErrors((er) => ({
+        ...er,
+        submit: e.message || "Registration failed",
+      }));
     }
   };
 
@@ -338,54 +489,6 @@ export default function AgencySignupPage() {
 
   const disabledStyle = (enabled) =>
     enabled ? "" : "opacity-60 cursor-not-allowed";
-
-  // Inline OTP popup component (scoped)
-  function OtpPopup({
-    open,
-    onClose,
-    onVerify,
-    otp,
-    setOtp,
-    timer,
-    onResend,
-    type,
-  }) {
-    if (!open) return null;
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
-          <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            className="w-full border rounded px-3 py-2 mb-4"
-            placeholder="Enter OTP"
-          />
-          <div className="flex justify-between items-center mb-4">
-            <button
-              className="bg-blue-600 text-white px-4 py-1 rounded"
-              onClick={onVerify}
-            >
-              Verify
-            </button>
-            <button className="text-gray-500 underline" onClick={onClose}>
-              Cancel
-            </button>
-          </div>
-          <div className="text-sm text-gray-700 flex items-center justify-between">
-            {timer > 0 ? (
-              <span>Resend in {timer}s</span>
-            ) : (
-              <button className="text-blue-600 underline" onClick={onResend}>
-                Resend OTP
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#FFF8F0] px-6 py-8 font-[Poppins] overflow-x-hidden">
@@ -450,7 +553,8 @@ export default function AgencySignupPage() {
                   !unlock.email ||
                   !isEmailValid ||
                   emailOtpSent ||
-                  emailOtpVerified
+                  emailOtpVerified ||
+                  !!errors.businessEmailTaken
                 }
               >
                 {emailOtpVerified
@@ -463,6 +567,11 @@ export default function AgencySignupPage() {
           </div>
           {errors.businessEmail && (
             <p className="text-red-500 text-xs mb-2">{errors.businessEmail}</p>
+          )}
+          {errors.businessEmailTaken && (
+            <p className="text-red-500 text-xs mb-2">
+              {errors.businessEmailTaken}
+            </p>
           )}
           {errors.emailOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.emailOtp}</p>
@@ -506,7 +615,8 @@ export default function AgencySignupPage() {
                   !unlock.phone ||
                   phoneOtpSent ||
                   phoneOtpVerified ||
-                  form.phone.length !== 10
+                  form.phone.length !== 10 ||
+                  !!errors.phoneTaken
                 }
               >
                 {phoneOtpVerified
@@ -519,6 +629,9 @@ export default function AgencySignupPage() {
           </div>
           {errors.phone && (
             <p className="text-red-500 text-xs mb-2">{errors.phone}</p>
+          )}
+          {errors.phoneTaken && (
+            <p className="text-red-500 text-xs mb-2">{errors.phoneTaken}</p>
           )}
           {errors.phoneOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.phoneOtp}</p>
@@ -708,6 +821,9 @@ export default function AgencySignupPage() {
           >
             Create Free Account
           </button>
+          {errors.submit && (
+            <p className="text-red-500 text-xs mt-2">{errors.submit}</p>
+          )}
 
           <p className="text-center text-sm mt-4">
             Already have an account?{" "}

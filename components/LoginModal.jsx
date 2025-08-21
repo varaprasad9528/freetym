@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-// import ForgotPasswordModal from "./ForgotPasswordModal";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginModal({ open, onClose }) {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function LoginModal({ open, onClose }) {
       localStorage.setItem("role", role);
       localStorage.setItem("userId", userId);
 
-      if (role === "influencer") router.push("/signup/influencer/dashboard");
+      if (role === "influencer") router.push("/influencer/dashboard");
       else if (role === "brand" || role === "agency") router.push("/dashboard");
       else router.push("/");
 

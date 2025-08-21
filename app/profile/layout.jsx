@@ -17,9 +17,9 @@ function pathForRole(role) {
   const r = String(role || "")
     .toLowerCase()
     .trim();
-  if (r === "influencer") return "/signup/influencer/dashboard";
-  if (r === "agent") return "/signup/agent/dashboard";
-  if (r === "brand") return "/signup/brand/dashboard";
+  if (r === "influencer") return "/influencer/dashboard";
+  if (r === "agent") return "/agent/dashboard";
+  if (r === "brand") return "/brand/dashboard";
   return "/dashboard"; // fallback
 }
 

@@ -1,4 +1,4 @@
-// app/signup/influencer/dashboard/media-kit/page.jsx
+// app/influencer/dashboard/media-kit/page.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

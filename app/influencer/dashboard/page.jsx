@@ -81,7 +81,7 @@ export default function InfluencerDashboard() {
   const handleContinue = () => {
     if (!selectedPlatform) return;
     router.push(
-      `/signup/influencer/dashboard/report?platform=${selectedPlatform.toLowerCase()}`
+      `/influencer/dashboard/report?platform=${selectedPlatform.toLowerCase()}`
     );
   };
 
