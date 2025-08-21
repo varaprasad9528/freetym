@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import LoginModal from "@/components/LoginModal";
 
 // --- Change this if your backend origin differs ---
-const BASE = "http://localhost:5000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+
+// safe JSON reader
+async function readJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
 
 function OtpPopup({
   open,
@@ -23,9 +33,15 @@ function OtpPopup({
       <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
         <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
         <input
+          autoFocus
+          inputMode="numeric"
+          pattern="\d*"
+          maxLength={6}
           type="text"
           value={otp}
-          onChange={(e) => setOtp(e.target.value)}
+          onChange={(e) =>
+            setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+          }
           className="w-full border rounded px-3 py-2 mb-4"
           placeholder="Enter OTP"
         />
@@ -227,7 +243,6 @@ export default function InfluencerSignupForm() {
   const genders = ["Male", "Female", "Other"];
   const locations = ["Delhi", "Mumbai", "Bangalore", "Hyderabad"];
 
-  // ✅ Languages with search (your list + English)
   const languages = [
     "English",
     "Bengali",
@@ -248,7 +263,6 @@ export default function InfluencerSignupForm() {
     "Urdu",
   ];
 
-  // TODAY for DOB max
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   // Regex / checks
@@ -316,11 +330,13 @@ export default function InfluencerSignupForm() {
         else if (!emailRegex.test(v.trim()))
           next.email = "Enter a valid email address";
         else delete next.email;
+        // clear server-side "taken" while typing
+        delete next.businessEmailTaken;
       }
 
       if (name === "dob") {
         if (!v) next.dob = "Date of Birth is required";
-        else if (v > today) next.dob = "DOB cannot be in the future";
+        else if (v > today) next.dob = "Date of Birth cannot be in the future";
         else delete next.dob;
       }
 
@@ -340,6 +356,8 @@ export default function InfluencerSignupForm() {
         if (!v) next.phone = "Phone Number is required";
         else if (v.length !== 10) next.phone = "Enter 10-digit number";
         else delete next.phone;
+        // clear server-side "taken" while typing
+        delete next.phoneTaken;
       }
 
       return next;
@@ -361,10 +379,29 @@ export default function InfluencerSignupForm() {
     return () => clearInterval(id);
   }, [showPhoneOtpPopup, phoneOtpTimer]);
 
-  // API calls (unchanged)
+  // Clear verification errors when verified (belt & suspenders)
+  useEffect(() => {
+    if (emailOtpVerified) {
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [emailOtpVerified]);
+  useEffect(() => {
+    if (phoneOtpVerified) {
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [phoneOtpVerified]);
+
+  // --- API: Email OTP ---
   const sendEmailOtp = async () => {
+    if (!isEmailValid) return;
     try {
-      const res = await fetch(`${BASE}/api/auth/register/email`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -373,13 +410,40 @@ export default function InfluencerSignupForm() {
           role: "influencer",
         }),
       });
-      if (!res.ok) throw new Error("Failed to send email OTP");
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            businessEmailTaken: "Email already registered",
+          }));
+          setEmailOtpSent(false);
+          setShowEmailOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          businessEmailTaken: data?.message || "Failed to send email OTP",
+        }));
+        return;
+      }
+
+      // success
+      setErrors((e) => {
+        const { businessEmailTaken, ...rest } = e;
+        return rest;
+      });
       setEmailOtpSent(true);
       setShowEmailOtpPopup(true);
       setEmailOtpTimer(60);
-      alert("Email OTP sent!");
-    } catch (e) {
-      alert(e.message || "Error sending email OTP");
+    } catch {
+      setErrors((e) => ({
+        ...e,
+        businessEmailTaken: "Failed to send email OTP",
+      }));
     }
   };
 
@@ -389,7 +453,7 @@ export default function InfluencerSignupForm() {
 
   const verifyEmailOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/email/verify`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/email/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -405,26 +469,58 @@ export default function InfluencerSignupForm() {
         throw new Error(data.message || "Invalid OTP");
       setEmailOtpVerified(true);
       setShowEmailOtpPopup(false);
-      alert("Email verified!");
+      // clear “verify email” error
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
+      });
     } catch (e) {
-      alert(e.message || "Invalid Email OTP");
+      setErrors((er) => ({
+        ...er,
+        emailOtp: e.message || "Invalid Email OTP",
+      }));
     }
   };
 
+  // --- API: Phone OTP ---
   const sendPhoneOtp = async () => {
+    if (form.phone.length !== 10) return;
     try {
-      const res = await fetch(`${BASE}/api/auth/register/phone`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/phone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: `+91${form.phone}`, email: form.email }),
       });
-      if (!res.ok) throw new Error("Failed to send phone OTP");
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            phoneTaken: "Mobile number already registered",
+          }));
+          setPhoneOtpSent(false);
+          setShowPhoneOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          phoneTaken: data?.message || "Failed to send phone OTP",
+        }));
+        return;
+      }
+
+      setErrors((e) => {
+        const { phoneTaken, ...rest } = e;
+        return rest;
+      });
       setPhoneOtpSent(true);
       setShowPhoneOtpPopup(true);
       setPhoneOtpTimer(60);
-      alert("Phone OTP sent!");
-    } catch (e) {
-      alert(e.message || "Error sending phone OTP");
+    } catch {
+      setErrors((e) => ({ ...e, phoneTaken: "Failed to send phone OTP" }));
     }
   };
 
@@ -434,7 +530,7 @@ export default function InfluencerSignupForm() {
 
   const verifyPhoneOtp = async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/register/phone/verify`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/phone/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -446,9 +542,16 @@ export default function InfluencerSignupForm() {
       if (!res.ok) throw new Error("Invalid OTP");
       setPhoneOtpVerified(true);
       setShowPhoneOtpPopup(false);
-      alert("Phone verified!");
+      // clear “verify phone” error
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
     } catch (e) {
-      alert(e.message || "Invalid Phone OTP");
+      setErrors((er) => ({
+        ...er,
+        phoneOtp: e.message || "Invalid Phone OTP",
+      }));
     }
   };
 
@@ -467,7 +570,8 @@ export default function InfluencerSignupForm() {
 
     if (!form.gender) errs.gender = "Gender is required";
     if (!form.dob) errs.dob = "Date of Birth is required";
-    else if (form.dob > today) errs.dob = "DOB cannot be in the future";
+    else if (form.dob > today)
+      errs.dob = "Date of Birth cannot be in the future";
 
     if (!form.location) errs.location = "Location is required";
     if (!form.language) errs.language = "Language is required";
@@ -502,7 +606,7 @@ export default function InfluencerSignupForm() {
         termsAccepted: String(!!form.termsAccepted),
       };
 
-      const res = await fetch(`${BASE}/api/auth/register/influencer`, {
+      const res = await fetch(`${API_BASE}/api/auth/register/influencer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -582,7 +686,8 @@ export default function InfluencerSignupForm() {
                   !unlock.email ||
                   !isEmailValid ||
                   emailOtpSent ||
-                  emailOtpVerified
+                  emailOtpVerified ||
+                  !!errors.businessEmailTaken
                 }
               >
                 {emailOtpVerified
@@ -595,6 +700,11 @@ export default function InfluencerSignupForm() {
           </div>
           {errors.email && (
             <p className="text-red-500 text-sm mb-2">{errors.email}</p>
+          )}
+          {errors.businessEmailTaken && (
+            <p className="text-red-500 text-sm mb-2">
+              {errors.businessEmailTaken}
+            </p>
           )}
           {errors.emailOtp && (
             <p className="text-red-500 text-sm mb-2">{errors.emailOtp}</p>
@@ -638,7 +748,8 @@ export default function InfluencerSignupForm() {
                   !unlock.phone ||
                   phoneOtpSent ||
                   phoneOtpVerified ||
-                  form.phone.length !== 10
+                  form.phone.length !== 10 ||
+                  !!errors.phoneTaken
                 }
               >
                 {phoneOtpVerified
@@ -651,6 +762,9 @@ export default function InfluencerSignupForm() {
           </div>
           {errors.phone && (
             <p className="text-red-500 text-sm mb-2">{errors.phone}</p>
+          )}
+          {errors.phoneTaken && (
+            <p className="text-red-500 text-sm mb-2">{errors.phoneTaken}</p>
           )}
           {errors.phoneOtp && (
             <p className="text-red-500 text-sm mb-2">{errors.phoneOtp}</p>
@@ -667,7 +781,7 @@ export default function InfluencerSignupForm() {
             type="Phone"
           />
 
-          {/* Gender + DOB */}
+          {/* Gender + Date of Birth */}
           <div className={`flex gap-4 mb-1 ${disabledStyle(unlock.genderDob)}`}>
             <select
               name="gender"
@@ -687,7 +801,7 @@ export default function InfluencerSignupForm() {
             <div className="dob-wrap relative w-1/2">
               {!form.dob && (
                 <span className="dob-ph pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                  DOB
+                  Date of Birth
                 </span>
               )}
               <input
@@ -713,7 +827,7 @@ export default function InfluencerSignupForm() {
             </div>
           )}
 
-          {/* Location (Searchable) + Language (Searchable) */}
+          {/* Location + Language */}
           <div className={`flex gap-4 mb-2 ${disabledStyle(unlock.locLang)}`}>
             <div className="w-1/2">
               <SearchableSelect
@@ -727,7 +841,6 @@ export default function InfluencerSignupForm() {
               />
             </div>
 
-            {/* ✅ Language is now a searchable dropdown */}
             <div className="w-1/2">
               <SearchableSelect
                 options={languages}

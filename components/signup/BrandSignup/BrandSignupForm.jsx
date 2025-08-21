@@ -8,6 +8,15 @@ import LoginModal from "@/components/LoginModal";
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
 const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 
+// small helper to safely read JSON
+async function readJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 // Shared OTP popup
 function OtpPopup({
   open,
@@ -164,18 +173,22 @@ export default function BrandSignupPage() {
 
   // Timers
   useEffect(() => {
-    let id = null;
-    if (showEmailOtpPopup && emailOtpTimer > 0)
-      id = setInterval(() => setEmailOtpTimer((t) => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [showEmailOtpPopup, emailOtpTimer]);
+    if (emailOtpVerified) {
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [emailOtpVerified]);
 
   useEffect(() => {
-    let id = null;
-    if (showPhoneOtpPopup && phoneOtpTimer > 0)
-      id = setInterval(() => setPhoneOtpTimer((t) => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [showPhoneOtpPopup, phoneOtpTimer]);
+    if (phoneOtpVerified) {
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
+    }
+  }, [phoneOtpVerified]);
 
   // Change handler
   const handleChange = (e) => {
@@ -186,7 +199,7 @@ export default function BrandSignupPage() {
 
     // live errors
     setErrors((prev) => {
-      const next = { ...prev };
+      let next = { ...prev };
       if (name === "fullName") {
         if (!v.trim()) next.fullName = "Full Name is required";
         else if (!nameRegex.test(v.trim()))
@@ -203,11 +216,17 @@ export default function BrandSignupPage() {
         else if (!emailRegex.test(v.trim()))
           next.businessEmail = "Enter a valid email address";
         else delete next.businessEmail;
+
+        // clear server-side "already registered" when editing
+        delete next.businessEmailTaken;
       }
       if (name === "phone") {
         if (!v) next.phone = "Phone is required";
         else if (v.length !== 10) next.phone = "Enter 10-digit number";
         else delete next.phone;
+
+        // clear server-side "already registered" when editing
+        delete next.phoneTaken;
       }
       if (name === "password") {
         if (!v) next.password = "Password is required";
@@ -232,8 +251,8 @@ export default function BrandSignupPage() {
   };
 
   // --- API: Email OTP ---
-  // POST /api/auth/register/email  { name, email, role: "brand" }
   const sendEmailOtp = async () => {
+    if (!isEmailValid) return;
     try {
       const res = await fetch(API("/api/auth/register/email"), {
         method: "POST",
@@ -244,18 +263,46 @@ export default function BrandSignupPage() {
           role: "brand",
         }),
       });
-      if (!res.ok) throw new Error("Failed to send email OTP");
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            businessEmailTaken: "Email already registered",
+          }));
+          setEmailOtpSent(false);
+          setShowEmailOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          businessEmailTaken: data?.message || "Failed to send email OTP",
+        }));
+        return;
+      }
+
+      // success
+      setErrors((e) => {
+        const { businessEmailTaken, ...rest } = e;
+        return rest;
+      });
       setEmailOtpSent(true);
       setShowEmailOtpPopup(true);
       setEmailOtpTimer(60);
-      alert("Email OTP sent!");
-    } catch (e) {
-      alert(e.message || "Error sending email OTP");
+    } catch {
+      setErrors((e) => ({
+        ...e,
+        businessEmailTaken: "Failed to send email OTP",
+      }));
     }
   };
   const resendEmailOtp = async () => sendEmailOtp();
 
   // POST /api/auth/register/email/verify  { name, role, otp, email }
+  // EMAIL VERIFY
   const verifyEmailOtp = async () => {
     try {
       const res = await fetch(API("/api/auth/register/email/verify"), {
@@ -272,38 +319,24 @@ export default function BrandSignupPage() {
       const data = await res.json().catch(() => ({}));
       if (data && data.success === false)
         throw new Error(data.message || "Invalid OTP");
+
       setEmailOtpVerified(true);
       setShowEmailOtpPopup(false);
-      alert("Email verified!");
-    } catch (e) {
-      alert(e.message || "Invalid Email OTP");
-    }
-  };
 
-  // --- API: Phone OTP ---
-  // POST /api/auth/register/phone  { phone:"+91xxxxxxxxxx", email }
-  const sendPhoneOtp = async () => {
-    try {
-      const res = await fetch(API("/api/auth/register/phone"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: `+91${form.phone}`,
-          email: form.businessEmail,
-        }),
+      // ⬅️ clear any previous “Please verify your email OTP”
+      setErrors((er) => {
+        const { emailOtp, ...rest } = er;
+        return rest;
       });
-      if (!res.ok) throw new Error("Failed to send phone OTP");
-      setPhoneOtpSent(true);
-      setShowPhoneOtpPopup(true);
-      setPhoneOtpTimer(60);
-      alert("Phone OTP sent!");
     } catch (e) {
-      alert(e.message || "Error sending phone OTP");
+      setErrors((er) => ({
+        ...er,
+        emailOtp: e.message || "Invalid Email OTP",
+      }));
     }
   };
-  const resendPhoneOtp = async () => sendPhoneOtp();
 
-  // POST /api/auth/register/phone/verify  { email, phone:"+91...", otp }
+  // PHONE VERIFY
   const verifyPhoneOtp = async () => {
     try {
       const res = await fetch(API("/api/auth/register/phone/verify"), {
@@ -316,17 +349,73 @@ export default function BrandSignupPage() {
         }),
       });
       if (!res.ok) throw new Error("Invalid OTP");
+
       setPhoneOtpVerified(true);
       setShowPhoneOtpPopup(false);
-      alert("Phone verified!");
+
+      // ⬅️ clear any previous “Please verify your phone OTP”
+      setErrors((er) => {
+        const { phoneOtp, ...rest } = er;
+        return rest;
+      });
     } catch (e) {
-      alert(e.message || "Invalid Phone OTP");
+      setErrors((er) => ({
+        ...er,
+        phoneOtp: e.message || "Invalid Phone OTP",
+      }));
     }
   };
 
+  // --- API: Phone OTP ---
+  const sendPhoneOtp = async () => {
+    if (form.phone.length !== 10) return;
+    try {
+      const res = await fetch(API("/api/auth/register/phone"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: `+91${form.phone}`,
+          email: form.businessEmail,
+        }),
+      });
+
+      const data = await readJson(res);
+
+      if (!res.ok) {
+        const msg = (data?.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          setErrors((e) => ({
+            ...e,
+            phoneTaken: "Mobile number already registered",
+          }));
+          setPhoneOtpSent(false);
+          setShowPhoneOtpPopup(false);
+          return;
+        }
+        setErrors((e) => ({
+          ...e,
+          phoneTaken: data?.message || "Failed to send phone OTP",
+        }));
+        return;
+      }
+
+      setErrors((e) => {
+        const { phoneTaken, ...rest } = e;
+        return rest;
+      });
+      setPhoneOtpSent(true);
+      setShowPhoneOtpPopup(true);
+      setPhoneOtpTimer(60);
+    } catch {
+      setErrors((e) => ({
+        ...e,
+        phoneTaken: "Failed to send phone OTP",
+      }));
+    }
+  };
+  const resendPhoneOtp = async () => sendPhoneOtp();
+
   // Final Brand registration
-  // POST /api/auth/register/brand
-  // { fullName, companyName, businessEmail, phone:"+91...", password, confirmPassword, industryType, location, termsAccepted:"true" }
   const completeRegistration = async () => {
     try {
       const payload = {
@@ -352,10 +441,12 @@ export default function BrandSignupPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      alert("Registration successful. Please login.");
       router.push("/login");
     } catch (e) {
-      alert(e.message || "Registration failed");
+      setErrors((er) => ({
+        ...er,
+        submit: e.message || "Registration failed",
+      }));
     }
   };
 
@@ -469,7 +560,8 @@ export default function BrandSignupPage() {
                   !unlock.email ||
                   !isEmailValid ||
                   emailOtpSent ||
-                  emailOtpVerified
+                  emailOtpVerified ||
+                  !!errors.businessEmailTaken
                 }
               >
                 {emailOtpVerified
@@ -482,6 +574,11 @@ export default function BrandSignupPage() {
           </div>
           {errors.businessEmail && (
             <p className="text-red-500 text-xs mb-2">{errors.businessEmail}</p>
+          )}
+          {errors.businessEmailTaken && (
+            <p className="text-red-500 text-xs mb-2">
+              {errors.businessEmailTaken}
+            </p>
           )}
           {errors.emailOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.emailOtp}</p>
@@ -525,7 +622,8 @@ export default function BrandSignupPage() {
                   !unlock.phone ||
                   phoneOtpSent ||
                   phoneOtpVerified ||
-                  form.phone.length !== 10
+                  form.phone.length !== 10 ||
+                  !!errors.phoneTaken
                 }
               >
                 {phoneOtpVerified
@@ -538,6 +636,9 @@ export default function BrandSignupPage() {
           </div>
           {errors.phone && (
             <p className="text-red-500 text-xs mb-2">{errors.phone}</p>
+          )}
+          {errors.phoneTaken && (
+            <p className="text-red-500 text-xs mb-2">{errors.phoneTaken}</p>
           )}
           {errors.phoneOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.phoneOtp}</p>
@@ -613,7 +714,7 @@ export default function BrandSignupPage() {
               disabled={!unlock.password}
             />
             {pwdFocused && unlock.password && (
-              <div className="absolute left-0 top-[38px] z-10 w-[min(520px,90vw)] bg-white rounded-[10px] border shadow-lg p-3 text-xs text-gray-800">
+              <div className="absolute left-0 top[38px] md:top-[38px] z-10 w-[min(520px,90vw)] bg-white rounded-[10px] border shadow-lg p-3 text-xs text-gray-800">
                 <div className="font-medium mb-1">Password should include:</div>
                 <ul className="space-y-1">
                   <li
@@ -749,6 +850,9 @@ export default function BrandSignupPage() {
           >
             Create Free Account
           </button>
+          {errors.submit && (
+            <p className="text-red-500 text-xs mt-2">{errors.submit}</p>
+          )}
 
           <p className="text-center text-sm mt-4">
             Already have an account?{" "}
