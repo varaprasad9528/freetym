@@ -44,7 +44,12 @@ const corsOptions = {
     return cb(new Error("Not allowed by CORS: " + origin));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "x-user-id",
+  ],
   credentials: true, // set to true only if you actually use cookies
 };
 
@@ -98,7 +103,7 @@ app.use("/api/campaigns", campaignRoutes);
 const adminRoutes = require("./routes/admin");
 app.use("/api/admin", adminRoutes);
 
-// NOTE: base path is singular: /api/influencer
+// NOTE: base path is singular: /
 const influencerRoutes = require("./routes/influencer");
 app.use("/api/influencer", influencerRoutes);
 

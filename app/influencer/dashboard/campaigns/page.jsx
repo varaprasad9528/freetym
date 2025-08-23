@@ -104,7 +104,7 @@ export default function CampaignsPage() {
 
   // Paging
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(4);
 
   // Data
   const [loading, setLoading] = useState(false);
@@ -249,7 +249,7 @@ export default function CampaignsPage() {
     if (!q) return true;
     return (
       (c.title || "").toLowerCase().includes(q) ||
-      (c.brand || "").toLowerCase().includes(q) ||
+      (c.brandName || "").toLowerCase().includes(q) ||
       (c.description || "").toLowerCase().includes(q)
     );
   };
@@ -264,30 +264,42 @@ export default function CampaignsPage() {
     // Regions
     if (regionSel.length) {
       arr = arr.filter((c) => {
-        const val = (c.region || "").toLowerCase();
+        const region = c.requirements?.socialMedia?.region || c.region || "";
+        const val = String(region).toLowerCase();
         return regionSel.some((r) => val.includes(r));
       });
     }
     // Industries
     if (industrySel.length) {
       arr = arr.filter((c) => {
-        const val = (c.industry || "").toLowerCase();
-        return industrySel.some((i) => val.includes(i));
+        const industries = Array.isArray(c.requirements?.industries)
+          ? c.requirements.industries
+          : [];
+        const allIndustries = [...industries, c.industry, c.category]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase());
+        return industrySel.some((i) =>
+          allIndustries.some((ind) => ind.includes(i))
+        );
       });
     }
     // Socials (support array or single field)
     if (socialSel.length) {
       arr = arr.filter((c) => {
-        const socialsText = Array.isArray(c?.socials)
-          ? c.socials.join(", ")
-          : c?.social || c?.platform || "";
-        const lower = socialsText.toLowerCase();
-        return socialSel.some((s) => lower.includes(s));
+        // Check requirements.socialMedia.platforms, socials, social, platform
+        const platforms = Array.isArray(c.requirements?.socialMedia?.platforms)
+          ? c.requirements.socialMedia.platforms
+          : [];
+        const socials = Array.isArray(c.socials) ? c.socials : [];
+        const allPlatforms = [...platforms, ...socials, c.social, c.platform]
+          .filter(Boolean)
+          .map((x) => String(x).toLowerCase());
+        return socialSel.some((s) => allPlatforms.some((p) => p.includes(s)));
       });
     }
     // Popular / Date sort
     if (popularSel.includes("popular")) {
-      arr = [...arr].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+      arr = [...arr].sort((a, b) => (b.budget || 0) - (a.budget || 0));
     } else if (popularSel.includes("date")) {
       arr = [...arr].sort(
         (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
@@ -484,7 +496,7 @@ export default function CampaignsPage() {
                   ) : (
                     filteredMy.map((c) => (
                       <tr key={c._id} className="border-b border-[#EFEFEF]">
-                        <td className="py-2 px-3">{c.brand || "-"}</td>
+                        <td className="py-2 px-3">{c.brandName || "-"}</td>
                         <td className="py-2 px-3">{c.title || "-"}</td>
                         <td className="py-2 px-3 capitalize">
                           {c.collaborationStatus || "-"}
@@ -582,14 +594,15 @@ export default function CampaignsPage() {
                     ))
                   : (() => {
                       // Always render 4 boxes to preserve layout
-                      const data = filteredExplore.slice(0, 4);
-                      const toFill = Math.max(0, 4 - data.length);
-                      const placeholders = Array.from({ length: toFill }).map(
-                        () => null
-                      );
-                      const fourSlots = [...data, ...placeholders];
+                      // ...inside the Explore tab grid...
+                      // Calculate start/end for current page
+                      const startIdx = (page - 1) * limit;
+                      const endIdx = startIdx + limit;
+                      const data = filteredExplore.slice(startIdx, endIdx);
+                      const toFill = Math.max(0, limit - data.length);
+                      const slots = [...data, ...Array(toFill).fill(null)];
 
-                      return fourSlots.map((c, idx) =>
+                      return slots.map((c, idx) =>
                         c ? (
                           <div
                             key={c._id || idx}
@@ -602,31 +615,35 @@ export default function CampaignsPage() {
                             tabIndex={0}
                             role="button"
                           >
+                            {/* Brand Name and date */}
                             <div className="flex justify-between items-start">
-                              <div className="font-semibold">Campaign Name</div>
+                              <div className="font-semibold">
+                                {c.title || "Campaign Name"}
+                              </div>
                               <div className="text-xs text-gray-500">
                                 {timeAgo(c.createdAt || c.startDate)}
                               </div>
                             </div>
-
+                            {/* Campaign description */}
                             <p className="text-sm text-gray-700 mt-1">
                               {c.description ||
                                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Etiam mattis eu nulla accumsan iaculis."}
                             </p>
-
+                            {/* Target Audience chips */}
                             <div className="flex flex-wrap gap-2 mt-3">
-                              {["Option 1", "Option 2", "Option 3"].map(
-                                (opt) => (
-                                  <span
-                                    key={opt}
-                                    className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-[#F4F2FF] border border-[#D0CEFF]"
-                                  >
-                                    {opt}
-                                  </span>
-                                )
-                              )}
+                              {(Array.isArray(c.targetAudience)
+                                ? c.targetAudience
+                                : []
+                              ).map((aud, i) => (
+                                <span
+                                  key={aud + i}
+                                  className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-[#F4F2FF] border border-[#D0CEFF]"
+                                >
+                                  {aud}
+                                </span>
+                              ))}
                             </div>
-
+                            {/* Footer actions */}
                             <div className="flex items-center justify-between mt-4">
                               <a
                                 className="text-xs underline underline-offset-2"
@@ -747,7 +764,7 @@ export default function CampaignsPage() {
                         {/* Brand & Campaign */}
                         <div className="col-span-5">
                           <div className="font-semibold">
-                            {c.brand || c.brandName || "Brand Name"}
+                            {c.brandName || "Brand Name"}
                           </div>
                           <div className="text-gray-700">
                             {c.title || c.campaignName || "Campaign Name"}
@@ -869,7 +886,6 @@ export default function CampaignsPage() {
               >
                 ✕
               </button>
-
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-lg bg-gray-100 border flex items-center justify-center text-gray-400">
                   <span className="text-sm">Logo</span>
@@ -879,7 +895,7 @@ export default function CampaignsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-semibold text-lg">
-                        {activeCampaign.brand || "Brand Name"}
+                        {activeCampaign.brandName || "Brand Name"}
                       </div>
                       <a
                         href={activeCampaign.website || "#"}
@@ -890,7 +906,6 @@ export default function CampaignsPage() {
                         {activeCampaign.website || "brandwebsitelink.com"}
                       </a>
                     </div>
-
                     <div className="text-[11px] text-gray-500">
                       Expires on{" "}
                       {(() => {
@@ -909,26 +924,26 @@ export default function CampaignsPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Title + description */}
-              <div className="mt-5 border-t pt-4">
-                <div className="font-semibold text-[18px]">
+              <br></br>
+              {/* Add campaign name and description here */}
+              <div className="mb-2">
+                <div className="font-semibold text-xl">
                   {activeCampaign.title || "Campaign Name"}
                 </div>
-                <p className="text-sm text-gray-700 mt-2">
-                  {activeCampaign.description ||
-                    "Campaign Description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Etiam mattis eu nulla accumsan iaculis."}
-                </p>
+                <div className="text-gray-700 text-sm mt-1">
+                  {activeCampaign.description || "No description available."}
+                </div>
               </div>
-
-              {/* Chips row */}
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {["Option 1", "Option 2", "Option 3"].map((opt) => (
+                {(Array.isArray(activeCampaign.targetAudience)
+                  ? activeCampaign.targetAudience
+                  : []
+                ).map((aud, i) => (
                   <span
-                    key={opt}
+                    key={aud + i}
                     className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-[#F4F2FF] border border-[#D0CEFF]"
                   >
-                    {opt}
+                    {aud}
                   </span>
                 ))}
 
@@ -962,7 +977,6 @@ export default function CampaignsPage() {
                   });
                 })()}
               </div>
-
               {/* Details box */}
               <div
                 className="mt-4 rounded-xl border p-4 bg-white"
@@ -977,7 +991,6 @@ export default function CampaignsPage() {
                   {activeCampaign.notes && <p>{activeCampaign.notes}</p>}
                 </div>
               </div>
-
               {/* Footer */}
               <div className="mt-5 flex items-center justify-between text-xs text-gray-500">
                 <div>

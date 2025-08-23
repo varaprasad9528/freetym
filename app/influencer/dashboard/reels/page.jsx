@@ -28,15 +28,15 @@ export default function ReelsInspirationPage() {
     if (el) setIndicatorStyle({ left: el.offsetLeft, width: el.clientWidth });
   }, [activeIdx]);
 
-  const authHeader = useMemo(() => {
+  function getAuthHeader() {
     try {
       const token =
-        typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+        typeof window !== "undefined" ? localStorage.getItem("token") : "";
       return token ? { Authorization: `Bearer ${token}` } : {};
     } catch {
       return {};
     }
-  }, []);
+  }
 
   async function fetchTrending() {
     setLoading(true);
@@ -64,7 +64,7 @@ export default function ReelsInspirationPage() {
       const res = await fetch(
         `${API_BASE}/api/reels/saved?page=${savedPage}&limit=${savedLimit}`,
         {
-          headers: { "Content-Type": "application/json", ...authHeader },
+          headers: { "Content-Type": "application/json", ...getAuthHeader() },
         }
       );
       const json = await res.json();
@@ -81,9 +81,10 @@ export default function ReelsInspirationPage() {
 
   async function toggleSave(reelId) {
     try {
+      const authHeader = getAuthHeader();
       const res = await fetch(`${API_BASE}/api/reels/${reelId}/save`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
       });
       const json = await res.json();
       if (!res.ok || !json?.success)
