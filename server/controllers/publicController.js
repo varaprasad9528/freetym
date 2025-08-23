@@ -41,11 +41,65 @@ function isValidPhone(phone) {
   return phoneRegex.test(phone);
 }
 
+// exports.searchInfluencers = async (req, res) => {
+//   try {
+//     const { platform, query, limit = 5 } = req.query;
+    
+//     // Build filter
+//     const filter = { 
+//       role: 'influencer', 
+//       status: 'approved' 
+//     };
+    
+//     if (platform) {
+//       filter.platform = platform;
+//     }
+    
+//     if (query) {
+//       filter.$or = [
+//         { name: { $regex: query, $options: 'i' } },
+//         { location: { $regex: query, $options: 'i' } },
+//         { category: { $regex: query, $options: 'i' } },
+//         { instagram: { $regex: query, $options: 'i' } },
+//         { youtube: { $regex: query, $options: 'i' } }
+//       ];
+//     }
+    
+//     const influencers = await User.find(filter)
+//       .select('name instagram youtube followers subscribers category platform location')
+//       .limit(parseInt(limit))
+//       .sort({ followers: -1 });
+//     console.log(influencers)
+//     const formattedResults = influencers.map(influencer => ({
+//       name: influencer.name,
+//       handle: influencer.instagram || influencer.youtube,
+//       followerCount: influencer.followers || influencer.subscribers,
+//       categories: influencer.category ? [influencer.category] : [],
+//       thumbnail: null, // Will be populated when social media integration is complete
+//       platform: influencer.platform,
+//       location: influencer.location
+//     }));
+    
+//     res.json({
+//       success: true,
+//       data: formattedResults,
+//       count: formattedResults.length
+//     });
+    
+//   } catch (error) {
+//     // logger.error('Public search error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error searching influencers',
+//       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//     });
+//   }
+// };
+
 exports.searchInfluencers = async (req, res) => {
   try {
-    const { platform, query, limit = 5 } = req.query;
+    const { platform, query, limit = 5, page = 1 } = req.query;
     
-    // Build filter
     const filter = { 
       role: 'influencer', 
       status: 'approved' 
@@ -64,30 +118,40 @@ exports.searchInfluencers = async (req, res) => {
         { youtube: { $regex: query, $options: 'i' } }
       ];
     }
-    
+
+    const pageSize = parseInt(limit);
+    const skip = (parseInt(page) - 1) * pageSize;
+
     const influencers = await User.find(filter)
       .select('name instagram youtube followers subscribers category platform location')
-      .limit(parseInt(limit))
+      .skip(skip)
+      .limit(pageSize)
       .sort({ followers: -1 });
-    
+
+    if (!influencers.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No influencers found matching your criteria'
+      });
+    }
+
     const formattedResults = influencers.map(influencer => ({
       name: influencer.name,
       handle: influencer.instagram || influencer.youtube,
       followerCount: influencer.followers || influencer.subscribers,
       categories: influencer.category ? [influencer.category] : [],
-      thumbnail: null, // Will be populated when social media integration is complete
+      thumbnail: influencer.instagram ? influencer.instagramProfile.thumbnailUrl : null,
       platform: influencer.platform,
       location: influencer.location
     }));
-    
+
     res.json({
       success: true,
       data: formattedResults,
       count: formattedResults.length
     });
-    
+
   } catch (error) {
-    // logger.error('Public search error:', error);
     res.status(500).json({
       success: false,
       message: 'Error searching influencers',
@@ -95,7 +159,6 @@ exports.searchInfluencers = async (req, res) => {
     });
   }
 };
-
 
 exports.submitDemoRequest = async (req, res) => {
   try {

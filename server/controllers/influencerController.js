@@ -119,29 +119,77 @@ exports.editUsername = async (req, res) => {
 };
 
 // My Campaigns: accepted/working
+// exports.getMyCampaigns = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+
+//     const skip = (page - 1) * limit;
+
+//     // Find accepted applications for this influencer
+//     const total = await Application.countDocuments({ influencer: req.user.userId, status: 'accepted' });
+
+//     const apps = await Application.find({ influencer: req.user.userId, status: 'accepted' })
+//       .populate('campaign')
+//       .skip(skip)
+//       .limit(limit);
+
+//     const campaigns = apps.map(a => a.campaign);
+
+//     res.json({
+//       total,
+//       page,
+//       limit,
+//       campaigns
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Failed to fetch campaigns', error: err.message });
+//   }
+// };
+// Get influencer's campaigns based on phase
 exports.getMyCampaigns = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-
-    const skip = (page - 1) * limit;
+    const userId = req.user.userId;
+    const { phase, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Find accepted applications for this influencer
-    const total = await Application.countDocuments({ influencer: req.user.userId, status: 'accepted' });
+    const filter = { 'influencers.userId': userId, 'status': 'accepted' };
 
-    const apps = await Application.find({ influencer: req.user.userId, status: 'accepted' })
-      .populate('campaign')
+    // Apply phase filter if provided
+    if (phase) {
+      filter['influencers.phases.' + phase] = { $exists: true }; // Check if the phase exists
+    }
+
+    const campaigns = await Campaign.find(filter)
+      .populate('brand', 'name companyName')
       .skip(skip)
-      .limit(limit);
+      .limit(parseInt(limit));
 
-    const campaigns = apps.map(a => a.campaign);
+    const total = await Campaign.countDocuments(filter);
+
+    // Format campaigns to return phase details
+    const filteredCampaigns = campaigns.map(campaign => {
+      const influencerData = campaign.influencers.find(
+        inf => inf.userId.toString() === userId
+      );
+      return {
+        ...campaign.toObject(),
+        influencerStatus: influencerData.status,
+        influencerPhases: influencerData.phases,
+        appliedAt: influencerData.appliedAt,
+        approvedAt: influencerData.approvedAt,
+        completedAt: influencerData.completedAt
+      };
+    });
 
     res.json({
       total,
-      page,
-      limit,
-      campaigns
+      page: parseInt(page),
+      limit: parseInt(limit),
+      campaigns: filteredCampaigns
     });
+
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch campaigns', error: err.message });
   }
@@ -403,7 +451,15 @@ exports.refreshSocialAccountData = async (req, res) => {
 // Get all media kits for a user
 exports.getAllMediaKits = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('mediaKit');
+    console.log(req.user)
+    const user = await User.findById(req.user.userId).select('mediaKit');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    console.log(user)
     res.json(user.mediaKit);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching media kits', error });
@@ -452,11 +508,11 @@ exports.getAllMediaKits = async (req, res) => {
 // };
 exports.addMediaKit = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // Generate base title for slug
-    const baseTitle = req.body.aboutMe || user.username || 'media-kit';
+    const baseTitle = req.body.aboutMe || user.name || 'media-kit';
 
     // Generate a unique slug
     const customUrl = await generateUniqueSlug(baseTitle, user._id);
@@ -506,13 +562,15 @@ exports.addMediaKit = async (req, res) => {
 exports.updateMediaKit = async (req, res) => {
   try {
     const { mediaKitId } = req.params;
-    const user = await User.findById(req.user.id);
+    console.log(req)
+    const user = await User.findById(req.user.userId);
     const mediaKit = user.mediaKit.id(mediaKitId);
 
     if (!mediaKit) {
       return res.status(404).json({ message: 'Media kit not found' });
     }
-
+    console.log("Media kit")
+    console.log(req.body)
     // If title is updated, regenerate slug
     if (req.body.title && req.body.title !== mediaKit.title) {
       const newSlug = await generateUniqueSlug(req.body.title, user._id);
@@ -530,18 +588,30 @@ exports.updateMediaKit = async (req, res) => {
 };
 
 // Delete media kit
+
+
+
 exports.deleteMediaKit = async (req, res) => {
   try {
     const { mediaKitId } = req.params;
-    const user = await User.findById(req.user.id);
+
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
     const kit = user.mediaKit.id(mediaKitId);
     if (!kit) return res.status(404).json({ message: 'Media kit not found' });
 
-    kit.remove();
+    // Proper removal using .pull() if .remove() isn't available
+    user.mediaKit.pull({ _id: mediaKitId });
+
     await user.save();
+
     res.json({ message: 'Media kit deleted' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting media kit', error });
+    res.status(500).json({
+      message: 'Error deleting media kit',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 };
 

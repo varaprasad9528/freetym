@@ -99,99 +99,7 @@ class YouTubeController {
       });
     }
   }
-
-  /**
-   * Handle YouTube OAuth callback
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   */
-  async handleCallback(req, res) {
-    let clientId = process.env.YOUTUBE_CLIENT_ID;
-      let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-      let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
-      let apiKey = process.env.YOUTUBE_API_KEY;
-      let baseUrl = 'https://www.googleapis.com/youtube/v3';
-    try {
-      const { code, state } = req.query;
-      console.log("Handle call back ")
-      if (!code) {
-        return res.status(400).json({ 
-          message: 'Authorization code not provided' 
-        });
-      }
-
-      // Decode state to get userId
-      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      const { userId } = stateData;
-
-      // Exchange code for access token
-      const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code
-      });
-
-      const { access_token, refresh_token, expires_in } = tokenResponse.data;
-
-      // Get channel information
-      const channelResponse = await axios.get(`${baseUrl}/channels`, {
-        params: {
-          part: 'snippet,statistics',
-          mine: true,
-          access_token
-        }
-      });
-
-      const channel = channelResponse.data.items[0];
-      if (!channel) {
-        return res.status(400).json({ 
-          message: 'No YouTube channel found' 
-        });
-      }
-
-      // Update user with YouTube connection
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      // Encrypt tokens before storing
-      const encryptedAccessToken = encryption.encrypt(access_token);
-      const encryptedRefreshToken = encryption.encrypt(refresh_token);
-      
-      user.socialConnections.youtube = {
-        connected: true,
-        channelId: channel.id,
-        channelTitle: channel.snippet.title,
-        accessToken: encryptedAccessToken,
-        refreshToken: encryptedRefreshToken,
-        tokenExpiresAt: new Date(Date.now() + expires_in * 1000),
-        subscriberCount: parseInt(channel.statistics.subscriberCount) || 0,
-        channelData: {
-          description: channel.snippet.description,
-          customUrl: channel.snippet.customUrl,
-          thumbnailUrl: channel.snippet.thumbnails.default.url,
-          country: channel.snippet.country,
-          viewCount: parseInt(channel.statistics.viewCount) || 0,
-          videoCount: parseInt(channel.statistics.videoCount) || 0
-        },
-        lastVerifiedAt: new Date(),
-        verificationStatus: 'verified'
-      };
-
-      await user.save();
-      console.log(user)
-      // Redirect to frontend with success
-      res.redirect(`${process.env.FRONTEND_URL}/dashboard?youtube=connected`);
-    } catch (error) {
-      console.error('YouTube OAuth callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/dashboard?youtube=error`);
-    }
-  }
-
-  /**
+   /**
    * Refresh YouTube access token
    * @param {string} refreshToken - Encrypted refresh token
    * @returns {Object} - New access token and expiration
@@ -339,6 +247,98 @@ class YouTubeController {
       });
     }
   }
+  /**
+   * Handle YouTube OAuth callback
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async handleCallback(req, res) {
+    let clientId = process.env.YOUTUBE_CLIENT_ID;
+      let clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+      let redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+      let apiKey = process.env.YOUTUBE_API_KEY;
+      let baseUrl = 'https://www.googleapis.com/youtube/v3';
+    try {
+      const { code, state } = req.query;
+      console.log("Handle call back ")
+      if (!code) {
+        return res.status(400).json({ 
+          message: 'Authorization code not provided' 
+        });
+      }
+      console.log("Call back")
+      // Decode state to get userId
+      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      const { userId } = stateData;
+
+      // Exchange code for access token
+      const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+        code
+      });
+
+      const { access_token, refresh_token, expires_in } = tokenResponse.data;
+
+      // Get channel information
+      const channelResponse = await axios.get(`${baseUrl}/channels`, {
+        params: {
+          part: 'snippet,statistics',
+          mine: true,
+          access_token
+        }
+      });
+
+      const channel = channelResponse.data.items[0];
+      if (!channel) {
+        return res.status(400).json({ 
+          message: 'No YouTube channel found' 
+        });
+      }
+
+      // Update user with YouTube connection
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Encrypt tokens before storing
+      const encryptedAccessToken = encryption.encrypt(access_token);
+      const encryptedRefreshToken = encryption.encrypt(refresh_token);
+      
+      user.socialConnections.youtube = {
+        connected: true,
+        channelId: channel.id,
+        channelTitle: channel.snippet.title,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        tokenExpiresAt: new Date(Date.now() + expires_in * 1000),
+        subscriberCount: parseInt(channel.statistics.subscriberCount) || 0,
+        channelData: {
+          description: channel.snippet.description,
+          customUrl: channel.snippet.customUrl,
+          thumbnailUrl: channel.snippet.thumbnails.default.url,
+          country: channel.snippet.country,
+          viewCount: parseInt(channel.statistics.viewCount) || 0,
+          videoCount: parseInt(channel.statistics.videoCount) || 0
+        },
+        lastVerifiedAt: new Date(),
+        verificationStatus: 'verified'
+      };
+
+      await user.save();
+      console.log(user)
+      // Redirect to frontend with success
+      res.redirect(`${process.env.FRONTEND_URL}/influencer/dashboard`);
+    } catch (error) {
+      console.error('YouTube OAuth callback error:', error);
+      res.redirect(`${process.env.FRONTEND_URL}/influencer/dashboard`);
+    }
+  }
+
+
 
   /**
    * Process YouTube content URL and extract analytics
@@ -697,7 +697,7 @@ function calculateTrendingScore(metrics, publishedAt) {
         url: `https://www.youtube.com/watch?v=${videoId}`,
         tags: [],
         category: snippet.categoryId || '',
-        language: '',
+        language: snippet.defaultAudioLanguage || '',
         metrics: {
           likes: parseInt(stats.likeCount) || 0,
           views: parseInt(stats.viewCount) || 0,
@@ -707,7 +707,7 @@ function calculateTrendingScore(metrics, publishedAt) {
         trendingScore,
         lastUpdated: new Date(snippet.publishedAt)
       });
-
+      
       await newReel.save();
       imported++;
     }

@@ -35,12 +35,13 @@ async function generateUniqueSlug(baseTitle, userId) {
   let counter = 1;
 
   const user = await User.findById(userId);
-
+  console.log("slug")
+  console.log(user)
   while (user.mediaKit.some(kit => kit.customUrl === uniqueSlug)) {
     uniqueSlug = `${slug}-${counter}`;
     counter++;
   }
-
+  console.log(uniqueSlug)
   return uniqueSlug;
 }
 

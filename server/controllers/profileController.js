@@ -1,5 +1,7 @@
 const Otp = require('../models/Otp');
 const User = require('../models/User');
+const sendEmailOtp = require("../utils/sendEmailOtp");
+const sendWhatsappOtp = require("../utils/sendWhatsappOtp");
 
 // generating otp 
 function generateOtp() {
@@ -326,7 +328,7 @@ exports.registerPhone = async (req, res) => {
     });
     console.log(otp)
     // Send OTP to the new phone number (you can replace this with actual sending logic, e.g., using SMS API)
-    // await sendPhoneOtp(phone, otp);
+    // await sendWhatsappOtp(phone, otp);
 
     return res.json({ message: "OTP sent to phone number." });
   } catch (err) {
@@ -351,7 +353,7 @@ exports.verifyPhoneOtp = async (req, res) => {
     const record = await Otp.findOne({
       phone,
       otp,
-      type: "reset",
+      type: "whatsapp",
       expiresAt: { $gt: new Date() },  // Check if OTP is still valid
     });
 

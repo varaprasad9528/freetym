@@ -37,7 +37,7 @@ router.post('/accounts/refresh', auth(['influencer']), influencerController.refr
 
 // Media Kit Management
 router.get('/media-kit', auth(['influencer']), influencerController.getAllMediaKits);
-router.post('/media-kit',auth(['influencer']), influencerController.addMediaKit);
-router.put('/:mediaKitId',auth(['influencer']), influencerController.updateMediaKit);
-router.delete('/:mediaKitId',auth(['influencer']), influencerController.deleteMediaKit);
+router.post('/media-kit/media-kit',auth(['influencer']), influencerController.addMediaKit);
+router.put('/media-kit/:mediaKitId',auth(['influencer']), influencerController.updateMediaKit);
+router.delete('/media-kit/:mediaKitId',auth(['influencer']), influencerController.deleteMediaKit);
 module.exports = router; 

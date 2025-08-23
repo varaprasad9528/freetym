@@ -102,6 +102,9 @@ app.use("/api/admin", adminRoutes);
 const influencerRoutes = require("./routes/influencer");
 app.use("/api/influencer", influencerRoutes);
 
+const brandRoutes = require("./routes/brand");
+app.use("/api/brand", brandRoutes);
+
 const applicationRoutes = require("./routes/application");
 app.use("/api/applications", applicationRoutes);
 

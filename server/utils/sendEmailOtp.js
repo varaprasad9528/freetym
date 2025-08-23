@@ -75,7 +75,7 @@ const transporter = require('../config/mailer');
  * @param {'verification' | 'reset'} purpose - Purpose of the OTP (e.g., 'verification' or 'reset').
  * @returns {Promise<void>}
  */
-async function sendEmailOtp(email, otp, purpose = 'verification') {
+async function sendEmailOtp(email, otp, purpose ) {
   try {
     const subjectAction =
       purpose === 'verification' ? 'verification code for your Freetym account' : 'password reset code for your Freetym account';
