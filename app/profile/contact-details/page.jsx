@@ -3,19 +3,14 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 
 /* ====== Config (uses env) ====== */
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000"
-).replace(/\/+$/, ""); // strip trailing slashes
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE.replace(/\/+$/, ""); // strip trailing slashes
 
 const ENDPOINTS = {
-  EMAIL_SEND: `${API_BASE}/api/auth/register/email`, // POST {name,email,role}
-  EMAIL_VERIFY: `${API_BASE}/api/auth/register/email/verify`, // POST {name,role,otp,email}
-  PHONE_SEND: `${API_BASE}/api/auth/register/phone`, // POST {phone,email}
-  PHONE_VERIFY: `${API_BASE}/api/auth/register/phone/verify`, // POST {email,phone,otp}
+  EMAIL_SEND: `${API_BASE}/api/profile/register/email`, // POST {email}
+  EMAIL_VERIFY: `${API_BASE}/api/profile/verify/email`, // PUT {email, otp}
+  PHONE_SEND: `${API_BASE}/api/profile/register/phone`, // POST {phone}
+  PHONE_VERIFY: `${API_BASE}/api/profile/verify/phone`, // PUT {phone, otp}
 };
-
-const DEFAULT_NAME = "Test Influencer";
-const ROLE = "influencer";
 
 function VerifiedPill() {
   return (
@@ -39,17 +34,14 @@ function VerifyPill({ onClick, loading, disabled }) {
 }
 
 export default function ContactDetailsPage() {
-  // WhatsApp digits only; we render +91 as a fixed prefix
   const [whatsDigits, setWhatsDigits] = useState("");
   const [email, setEmail] = useState("");
 
-  // Which field is currently verifying: 'email' | 'whatsapp' | null
-  const [otpMode, setOtpMode] = useState(null);
+  const [otpMode, setOtpMode] = useState(null); // 'email' | 'whatsapp'
   const [otp, setOtp] = useState("");
 
   const [verified, setVerified] = useState({ whatsapp: false, email: false });
 
-  // loading + feedback
   const [sending, setSending] = useState({ email: false, whatsapp: false });
   const [verifying, setVerifying] = useState(false);
   const [msg, setMsg] = useState("");
@@ -61,6 +53,15 @@ export default function ContactDetailsPage() {
   const isEmailValid = /^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(email.trim());
   const isPhoneValid = whatsDigits.length === 10;
 
+  // ✅ Helper to get headers with token
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   // --- API calls ---
   const sendEmailOtp = async () => {
     try {
@@ -70,8 +71,8 @@ export default function ContactDetailsPage() {
       setSending((s) => ({ ...s, email: true }));
       const res = await fetch(ENDPOINTS.EMAIL_SEND, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: DEFAULT_NAME, email, role: ROLE }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.message || "Failed to send email OTP");
@@ -92,14 +93,14 @@ export default function ContactDetailsPage() {
       setMsg("");
       setVerifying(true);
       const res = await fetch(ENDPOINTS.EMAIL_VERIFY, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: DEFAULT_NAME, role: ROLE, otp, email }),
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email, otp }),
       });
       const j = await res.json();
-      if (!res.ok || j?.success === false)
+      if (!res.ok)
         throw new Error(j?.message || "Email OTP verification failed");
-      setMsg(j?.message || "Email OTP verified successfully.");
+      setMsg(j?.message || "Email address verified and updated successfully.");
       setVerified((v) => ({ ...v, email: true }));
       setOtpMode(null);
       setOtp("");
@@ -118,12 +119,12 @@ export default function ContactDetailsPage() {
       setSending((s) => ({ ...s, whatsapp: true }));
       const res = await fetch(ENDPOINTS.PHONE_SEND, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: fullPhone, email }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ phone: fullPhone }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.message || "Failed to send WhatsApp OTP");
-      setMsg(j?.message || "OTP sent to WhatsApp.");
+      setMsg(j?.message || "OTP sent to phone number.");
       setOtpMode("whatsapp");
     } catch (e) {
       setErr(e.message || "Failed to send WhatsApp OTP");
@@ -140,14 +141,14 @@ export default function ContactDetailsPage() {
       setMsg("");
       setVerifying(true);
       const res = await fetch(ENDPOINTS.PHONE_VERIFY, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, phone: fullPhone, otp }),
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ phone: fullPhone, otp }),
       });
       const j = await res.json();
       if (!res.ok)
         throw new Error(j?.message || "WhatsApp OTP verification failed");
-      setMsg(j?.message || "WhatsApp OTP verified.");
+      setMsg(j?.message || "Phone number verified and updated successfully.");
       setVerified((v) => ({ ...v, whatsapp: true }));
       setOtpMode(null);
       setOtp("");
@@ -302,7 +303,7 @@ export default function ContactDetailsPage() {
             </div>
           )}
 
-          {/* Submit Button (no-op demo) */}
+          {/* Submit Button */}
           <div className="flex justify-center mt-2">
             <button
               type="submit"

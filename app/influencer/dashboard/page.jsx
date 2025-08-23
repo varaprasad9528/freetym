@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // Confirmation Modal as a Popup
 function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
@@ -14,6 +14,7 @@ function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
         >
           ×
         </button>
+
         {/* Single Circle + Check SVG */}
         <div className="mb-6 mt-2">
           <svg width="60" height="60" fill="none" viewBox="0 0 60 60">
@@ -35,6 +36,7 @@ function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
             />
           </svg>
         </div>
+
         <h2 className="text-xl font-bold text-[#3A36DB] mb-3">
           You’re nearly there!
         </h2>
@@ -50,7 +52,7 @@ function ConfirmationPopup({ email, onVerify, onClose, onResend }) {
             className="text-[#3A36DB] underline font-semibold"
             onClick={(e) => {
               e.preventDefault();
-              onVerify(); // THIS is what triggers the account added UI
+              onVerify(); // Calls backend verify
             }}
           >
             click on the verification link
@@ -72,11 +74,23 @@ export default function InfluencerDashboard() {
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [account, setAccount] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
-  const [accountAdded, setAccountAdded] = useState(false); // <<--- NEW
+  const [accountAdded, setAccountAdded] = useState(false);
+  const [channelData, setChannelData] = useState(null);
 
   const mockEmail = "userid@email.com";
   const mockUserId = "Userid";
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE;
+
+  // Handle redirect from backend after OAuth
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (connected === "youtube") {
+      setShowConfirm(true);
+    }
+  }, [searchParams]);
 
   const handleContinue = () => {
     if (!selectedPlatform) return;
@@ -85,25 +99,66 @@ export default function InfluencerDashboard() {
     );
   };
 
-  // Simulate account selection (when anything is typed, popup appears)
-  const handleAccountSelect = (e) => {
-    setAccount(e.target.value);
-    if (e.target.value.trim()) {
-      setTimeout(() => setShowConfirm(true), 500);
+  // Start YouTube OAuth flow
+  const handleYouTubeConnect = async () => {
+    try {
+      const token = localStorage.getItem("token"); // or however you store it
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/social/youtube/auth`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ send token in header
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (error) {
+      console.error("YouTube auth failed:", error);
+    }
+  };
+  // Verify YouTube channel after OAuth
+  const handleVerify = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/social/youtube/verify`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setShowConfirm(false);
+        setAccountAdded(true);
+        setChannelData(data);
+        console.log("Verification success:", data);
+      } else {
+        alert(data.message || "Verification failed");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error verifying channel");
     }
   };
 
-  // When the user "verifies" email (clicks verification link)
-  const handleVerify = () => {
-    setShowConfirm(false);
-    setAccountAdded(true); // <<--- Set account as added!
-  };
-
-  // Remove account handler
   const handleRemoveAccount = () => {
     setAccountAdded(false);
     setAccount("");
     setSelectedPlatform(null);
+    setChannelData(null);
   };
 
   return (
@@ -141,7 +196,7 @@ export default function InfluencerDashboard() {
         <div className="mb-6">
           <p className="text-sm font-medium mb-4">Choose your platform</p>
           <div className="flex gap-6">
-            {/* Instagram */}
+            {/* Instagram (stubbed, no backend yet) */}
             <div
               onClick={() => setSelectedPlatform("Instagram")}
               className="relative cursor-pointer transition"
@@ -161,42 +216,16 @@ export default function InfluencerDashboard() {
                 style={{ width: "258px", height: "82px" }}
               />
               {selectedPlatform === "Instagram" && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "8px",
-                    right: "8px",
-                    zIndex: 2,
-                  }}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="#08D948"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      strokeWidth="2"
-                      fill="white"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M7 13l3 3 7-7"
-                    />
-                  </svg>
-                </span>
+                <span className="absolute top-2 right-2">✅</span>
               )}
             </div>
 
             {/* YouTube */}
             <div
-              onClick={() => setSelectedPlatform("YouTube")}
+              onClick={() => {
+                setSelectedPlatform("YouTube");
+                handleYouTubeConnect();
+              }}
               className="relative cursor-pointer transition"
               style={{
                 width: "258px",
@@ -214,43 +243,11 @@ export default function InfluencerDashboard() {
                 style={{ width: "258px", height: "82px" }}
               />
               {selectedPlatform === "YouTube" && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "8px",
-                    right: "8px",
-                    zIndex: 2,
-                  }}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="#08D948"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      strokeWidth="2"
-                      fill="white"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M7 13l3 3 7-7"
-                    />
-                  </svg>
-                </span>
+                <span className="absolute top-2 right-2">✅</span>
               )}
             </div>
           </div>
         </div>
-
-        {/* (Optional) If you still want the type-to-open modal, add an input and bind handleAccountSelect */}
-        {/* <input value={account} onChange={handleAccountSelect} className="border px-3 py-2 rounded" placeholder="Search..." /> */}
 
         {/* After account is added, show My Accounts */}
         {accountAdded && (
@@ -269,7 +266,7 @@ export default function InfluencerDashboard() {
                 </svg>
               </span>
               <span className="flex-1 text-gray-800 font-medium text-base text-left">
-                {mockUserId}
+                {channelData?.channel?.title || mockUserId}
               </span>
               <button
                 className="ml-3 text-gray-400 hover:text-red-500"
@@ -291,6 +288,15 @@ export default function InfluencerDashboard() {
                 </svg>
               </button>
             </div>
+
+            {/* Example metrics display */}
+            {channelData?.metrics && (
+              <div className="mt-3 text-sm text-gray-600">
+                <p>Subscribers: {channelData.metrics.subscribers}</p>
+                <p>Views: {channelData.metrics.views}</p>
+              </div>
+            )}
+
             <button
               className="w-full bg-[#3A36DB] hover:bg-[#2B2ACF] text-white py-2 rounded-md font-semibold text-lg transition mt-6"
               onClick={handleContinue}

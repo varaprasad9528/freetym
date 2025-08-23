@@ -13,9 +13,9 @@ function cleanBase(base) {
 }
 const API_BASE = cleanBase(process.env.NEXT_PUBLIC_API_BASE);
 
-// Adjust this path to match your backend if needed
 const ENDPOINTS = {
-  ADDRESS: `${API_BASE}/api/profile/address`,
+  PROFILE: `${API_BASE}/api/profile`, // for GET on mount
+  ADDRESS: `${API_BASE}/api/profile/address`, // for PUT on save/update
 };
 
 function authHeaders(extra = {}) {
@@ -81,7 +81,7 @@ export default function AddressDetailsPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [isEditing, setIsEditing] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const [hasExisting, setHasExisting] = useState(false);
   const [err, setErr] = useState("");
 
@@ -92,7 +92,8 @@ export default function AddressDetailsPage() {
       try {
         setInitialLoading(true);
         setErr("");
-        const res = await fetch(ENDPOINTS.ADDRESS, {
+
+        const res = await fetch(ENDPOINTS.PROFILE, {
           method: "GET",
           headers: authHeaders(),
           cache: "no-store",
@@ -107,40 +108,37 @@ export default function AddressDetailsPage() {
             setHasExisting(false);
             setIsEditing(true);
           } else if (res.ok) {
+            const addr = data.address || {};
+
             const filled = {
-              country: data.country || "India",
-              state: data.state || "",
-              city: data.city || "",
-              pincode: data.pincode || "",
-              address: data.fullAddress || "",
+              country: addr.country || "India",
+              state: addr.state || "",
+              city: addr.city || "",
+              pincode: addr.pincode || "",
+              address: addr.fullAddress || "",
             };
+
             setForm(filled);
             setLastSaved(filled);
-            setHasExisting(
-              Boolean(
-                data &&
-                  (data.state || data.city || data.pincode || data.fullAddress)
-              )
-            );
-            setIsEditing(
-              !Boolean(
-                data &&
-                  (data.state || data.city || data.pincode || data.fullAddress)
-              )
-            );
+
+            const hasAny =
+              addr.state || addr.city || addr.pincode || addr.fullAddress;
+
+            setHasExisting(Boolean(hasAny));
+            setIsEditing(!Boolean(hasAny));
           } else if (res.status === 404) {
             setForm(emptyForm);
             setHasExisting(false);
             setIsEditing(true);
           } else {
-            setErr(data?.error || data?.message || "Failed to load address.");
+            setErr(data?.error || data?.message || "Failed to load profile.");
             setHasExisting(false);
             setIsEditing(true);
           }
         }
       } catch {
         if (!cancelled) {
-          setErr("Network error while loading address.");
+          setErr("Network error while loading profile.");
           setHasExisting(false);
           setIsEditing(true);
         }
@@ -157,36 +155,30 @@ export default function AddressDetailsPage() {
   const errors = useMemo(() => {
     const e = {};
     if (!form.country) e.country = "Country is required.";
-
     if (!form.state) e.state = "Please select a state/UT.";
-
     if (!form.city.trim()) e.city = "City is required.";
     else if (!/^[A-Za-z ]{2,50}$/.test(form.city.trim()))
       e.city = "City should contain letters/spaces only (2–50 chars).";
-
     if (!form.pincode) e.pincode = "Pincode is required.";
     else if (!/^\d{6}$/.test(form.pincode))
       e.pincode = "Enter a valid 6-digit pincode.";
-
     if (!form.address.trim()) e.address = "Address is required.";
     else if (form.address.trim().length < 10)
       e.address = "Address should be at least 10 characters.";
-
     return e;
   }, [form]);
 
   const isValid = Object.keys(errors).length === 0;
   const markTouched = (name) => setTouched((t) => ({ ...t, [name]: true }));
 
-  // clamp pincode to digits (max 6)
+  // clamp pincode
   const handlePincodeChange = (v) => {
     const next = v.replace(/\D/g, "").slice(0, 6);
     setForm((f) => ({ ...f, pincode: next }));
   };
 
   // ---- Submit (Create/Update) ----
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setTouched({
       country: true,
       state: true,
@@ -268,7 +260,7 @@ export default function AddressDetailsPage() {
       <div className="px-10 py-2">
         <h2 className="text-lg font-bold mb-10">Address Details</h2>
 
-        {(err || message) && (
+        {(err || (!isEditing && message)) && (
           <div
             className={`mb-4 text-sm px-3 py-2 rounded border ${
               err
@@ -283,114 +275,111 @@ export default function AddressDetailsPage() {
         {initialLoading ? (
           <p className="text-sm text-gray-600">Loading…</p>
         ) : (
-          <form
-            className="max-w-4xl mx-auto"
-            onSubmit={handleSubmit}
-            noValidate
-          >
-            <div className="grid grid-cols-2 gap-x-6 gap-y-5 mb-5">
-              {/* Country (locked to India) */}
-              <div>
-                <label className={labelBase}>Country</label>
-                <input
-                  type="text"
-                  value={form.country}
-                  readOnly
-                  className={`${inputBase} border-gray-300 text-gray-700 bg-gray-100 cursor-not-allowed`}
-                />
-                {touched.country && errors.country && (
-                  <p className={errText}>{errors.country}</p>
-                )}
+          <>
+            {/* Form only inputs */}
+            <form className="max-w-4xl mx-auto" noValidate>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5 mb-5">
+                {/* Country */}
+                <div>
+                  <label className={labelBase}>Country</label>
+                  <input
+                    type="text"
+                    value={form.country}
+                    readOnly
+                    className={`${inputBase} border-gray-300 text-gray-700 bg-gray-100 cursor-not-allowed`}
+                  />
+                </div>
+
+                {/* State */}
+                <div>
+                  <label className={labelBase}>State</label>
+                  <select
+                    value={form.state}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, state: e.target.value }))
+                    }
+                    onBlur={() => markTouched("state")}
+                    disabled={!isEditing}
+                    className={`${inputBase} border-gray-300 ${disabledCls}`}
+                  >
+                    <option value="">Select State / UT</option>
+                    {IN_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {touched.state && errors.state && (
+                    <p className={errText}>{errors.state}</p>
+                  )}
+                </div>
+
+                {/* City */}
+                <div>
+                  <label className={labelBase}>City</label>
+                  <input
+                    type="text"
+                    value={form.city}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, city: e.target.value }))
+                    }
+                    onBlur={() => markTouched("city")}
+                    disabled={!isEditing}
+                    className={`${inputBase} border-gray-300 ${disabledCls}`}
+                    placeholder="e.g., Guntur"
+                  />
+                  {touched.city && errors.city && (
+                    <p className={errText}>{errors.city}</p>
+                  )}
+                </div>
+
+                {/* Pincode */}
+                <div>
+                  <label className={labelBase}>Pincode</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\d*"
+                    value={form.pincode}
+                    onChange={(e) => handlePincodeChange(e.target.value)}
+                    onBlur={() => markTouched("pincode")}
+                    disabled={!isEditing}
+                    className={`${inputBase} border-gray-300 ${disabledCls}`}
+                    placeholder="6-digit pincode"
+                  />
+                  {touched.pincode && errors.pincode && (
+                    <p className={errText}>{errors.pincode}</p>
+                  )}
+                </div>
               </div>
 
-              {/* State */}
-              <div>
-                <label className={labelBase}>State</label>
-                <select
-                  value={form.state}
+              {/* Address */}
+              <div className="mb-8">
+                <label className={labelBase}>Full Address</label>
+                <textarea
+                  rows={3}
+                  value={form.address}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, state: e.target.value }))
+                    setForm((f) => ({ ...f, address: e.target.value }))
                   }
-                  onBlur={() => markTouched("state")}
+                  onBlur={() => markTouched("address")}
                   disabled={!isEditing}
                   className={`${inputBase} border-gray-300 ${disabledCls}`}
-                >
-                  <option value="">Select State / UT</option>
-                  {IN_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                {touched.state && errors.state && (
-                  <p className={errText}>{errors.state}</p>
-                )}
-              </div>
-
-              {/* City */}
-              <div>
-                <label className={labelBase}>City</label>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, city: e.target.value }))
-                  }
-                  onBlur={() => markTouched("city")}
-                  disabled={!isEditing}
-                  className={`${inputBase} border-gray-300 ${disabledCls}`}
-                  placeholder="e.g., Guntur"
+                  placeholder="House No., Street, Area, Landmark"
                 />
-                {touched.city && errors.city && (
-                  <p className={errText}>{errors.city}</p>
+                {touched.address && errors.address && (
+                  <p className={errText}>{errors.address}</p>
                 )}
               </div>
+            </form>
 
-              {/* Pincode */}
-              <div>
-                <label className={labelBase}>Pincode</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d*"
-                  value={form.pincode}
-                  onChange={(e) => handlePincodeChange(e.target.value)}
-                  onBlur={() => markTouched("pincode")}
-                  disabled={!isEditing}
-                  className={`${inputBase} border-gray-300 ${disabledCls}`}
-                  placeholder="6-digit pincode"
-                />
-                {touched.pincode && errors.pincode && (
-                  <p className={errText}>{errors.pincode}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Address */}
-            <div className="mb-8">
-              <label className={labelBase}>Full Address</label>
-              <textarea
-                rows={3}
-                value={form.address}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, address: e.target.value }))
-                }
-                onBlur={() => markTouched("address")}
-                disabled={!isEditing}
-                className={`${inputBase} border-gray-300 ${disabledCls}`}
-                placeholder="House No., Street, Area, Landmark"
-              />
-              {touched.address && errors.address && (
-                <p className={errText}>{errors.address}</p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
+            {/* Buttons moved OUTSIDE */}
+            <div className="flex items-center gap-3 mt-6">
               {isEditing ? (
                 <>
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSubmit}
                     disabled={loading || !isValid}
                     className="bg-[#F16623] hover:bg-[#d95312] text-white px-8 py-2 rounded-md font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -413,33 +402,16 @@ export default function AddressDetailsPage() {
                   )}
                 </>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={startEdit}
-                    className="bg-[#3A36DB] hover:bg-[#2f2ac2] text-white px-8 py-2 rounded-md font-semibold text-base"
-                  >
-                    Edit
-                  </button>
-                  {message && (
-                    <span className="text-sm font-medium text-gray-700">
-                      {message}
-                    </span>
-                  )}
-                </>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="bg-[#3A36DB] hover:bg-[#2f2ac2] text-white px-8 py-2 rounded-md font-semibold text-base"
+                >
+                  Edit
+                </button>
               )}
             </div>
-
-            {/* Message (for non-editing state too) */}
-            {!isEditing && !message && hasExisting && (
-              <p className="mt-3 text-sm text-gray-600">
-                Address saved. Click <b>Edit</b> to modify.
-              </p>
-            )}
-            {isEditing && message && (
-              <p className="mt-3 text-sm text-gray-700">{message}</p>
-            )}
-          </form>
+          </>
         )}
       </div>
     </div>
