@@ -147,42 +147,205 @@ exports.editUsername = async (req, res) => {
 //   }
 // };
 // Get influencer's campaigns based on phase
+// exports.getMyCampaigns = async (req, res) => {
+//   try {
+//     const userId = req.user.userId;
+//     const { phase, page = 1, limit = 10 } = req.query;
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+//     // Find accepted applications for this influencer
+//     const filter = { 'influencers.userId': userId, 'status': 'accepted' };
+
+//     // Apply phase filter if provided
+//     if (phase) {
+//       filter['influencers.phases.' + phase] = { $exists: true }; // Check if the phase exists
+//     }
+
+//     const campaigns = await Campaign.find(filter)
+//       .populate('brand', 'name companyName')
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await Campaign.countDocuments(filter);
+
+//     // Format campaigns to return phase details
+//     const filteredCampaigns = campaigns.map(campaign => {
+//       const influencerData = campaign.influencers.find(
+//         inf => inf.userId.toString() === userId
+//       );
+//       return {
+//         ...campaign.toObject(),
+//         influencerStatus: influencerData.status,
+//         influencerPhases: influencerData.phases,
+//         appliedAt: influencerData.appliedAt,
+//         approvedAt: influencerData.approvedAt,
+//         completedAt: influencerData.completedAt
+//       };
+//     });
+
+//     res.json({
+//       total,
+//       page: parseInt(page),
+//       limit: parseInt(limit),
+//       campaigns: filteredCampaigns
+//     });
+
+//   } catch (err) {
+//     res.status(500).json({ message: 'Failed to fetch campaigns', error: err.message });
+//   }
+// };
+
+// exports.getMyCampaigns = async (req, res) => {
+//   try {
+//     const userId = req.user.userId;
+//     const { phase='planning', page, limit } = req.query;
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+//     if(phase==""){
+//       phase="planning"
+//     }
+//     // 1. Get accepted applications
+//     const acceptedApplications = await Application.find({
+//       influencer: userId,
+//       status: 'accepted'
+//     }).select('campaign');
+
+//     const campaignIds = acceptedApplications.map(app => app.campaign);
+//     console.log(campaignIds)
+//     if (campaignIds.length === 0) {
+//       return res.json({ total: 0, page: parseInt(page), limit: parseInt(limit), campaigns: [] });
+//     }
+
+//     // 2. Build influencer filter for phase
+//     const influencerFilter = {
+//       userId: userId
+//     };
+
+//     if (phase === 'planning') {
+//       influencerFilter['phases.planning'] = { $exists: true };
+//     } else if (phase === 'ongoing') {
+//       influencerFilter['phases.ongoing'] = { $exists: true };
+//     } else if (phase === 'completed') {
+//       influencerFilter.$or = [
+//         { 'phases.completed': { $exists: true } },
+//         { status: 'completed' }
+//       ];
+//     }
+
+//     const campaignFilter = {
+//       _id: { $in: campaignIds },
+//       influencers: { $elemMatch: influencerFilter }
+//     };
+
+//     // 3. Fetch filtered campaigns
+//     const campaigns = await Campaign.find(campaignFilter)
+//       .populate('brand', 'name companyName')
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await Campaign.countDocuments(campaignFilter);
+
+//     // 4. Format response
+//     const filteredCampaigns = campaigns.map(campaign => {
+//       const influencerData = campaign.influencers.find(
+//         inf => inf.userId.toString() === userId
+//       );
+//       return {
+//         ...campaign.toObject(),
+//         influencerStatus: influencerData.status,
+//         influencerPhases: influencerData.phases,
+//         appliedAt: influencerData.appliedAt,
+//         approvedAt: influencerData.approvedAt,
+//         completedAt: influencerData.completedAt
+//       };
+//     });
+
+//     // 5. Return result
+//     res.json({
+//       total,
+//       page: parseInt(page),
+//       limit: parseInt(limit),
+//       campaigns: filteredCampaigns
+//     });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: 'Failed to fetch campaigns', error: err.message });
+//   }
+// };
+
 exports.getMyCampaigns = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { phase, page = 1, limit = 10 } = req.query;
+    let { phase, page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    if(phase=""){
+      phase = 'planning'
+    }
+    
+    const acceptedApplications = await Application.find({
+      influencer: userId,
+      status: 'accepted'
+    }).select('campaign payoutStatus appliedAt');
 
-    // Find accepted applications for this influencer
-    const filter = { 'influencers.userId': userId, 'status': 'accepted' };
+    const campaignIds = acceptedApplications.map(app => app.campaign);
+    const appMap = {};
+    acceptedApplications.forEach(app => {
+      appMap[app.campaign.toString()] = app;
+    });
 
-    // Apply phase filter if provided
-    if (phase) {
-      filter['influencers.phases.' + phase] = { $exists: true }; // Check if the phase exists
+    if (campaignIds.length === 0) {
+      return res.json({ total: 0, page: parseInt(page), limit: parseInt(limit), campaigns: [] });
     }
 
-    const campaigns = await Campaign.find(filter)
+    
+    const influencerFilter = { userId };
+
+    if (phase === 'planning') {
+      influencerFilter['phases.planning'] = { $exists: true };
+    } else if (phase === 'ongoing') {
+      influencerFilter['phases.ongoing'] = { $exists: true };
+    } else if (phase === 'completed') {
+      influencerFilter.$or = [
+        { 'phases.completed': { $exists: true } },
+        { status: 'completed' }
+      ];
+    }
+
+    const campaignFilter = {
+      _id: { $in: campaignIds },
+      influencers: { $elemMatch: influencerFilter }
+    };
+
+    
+    const campaigns = await Campaign.find(campaignFilter)
       .populate('brand', 'name companyName')
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Campaign.countDocuments(filter);
+    const total = await Campaign.countDocuments(campaignFilter);
 
-    // Format campaigns to return phase details
+    
     const filteredCampaigns = campaigns.map(campaign => {
       const influencerData = campaign.influencers.find(
         inf => inf.userId.toString() === userId
       );
+
+      const app = appMap[campaign._id.toString()];
+
       return {
-        ...campaign.toObject(),
+        _id: campaign._id,
+        title: campaign.title,
+        brand: campaign.brand,
         influencerStatus: influencerData.status,
-        influencerPhases: influencerData.phases,
-        appliedAt: influencerData.appliedAt,
+        appliedAt: influencerData.appliedAt || app?.appliedAt,
         approvedAt: influencerData.approvedAt,
-        completedAt: influencerData.completedAt
+        completedAt: influencerData.completedAt,
+        paymentStatus: app?.payoutStatus || 'pending'
       };
     });
 
+    
     res.json({
       total,
       page: parseInt(page),
@@ -191,10 +354,10 @@ exports.getMyCampaigns = async (req, res) => {
     });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Failed to fetch campaigns', error: err.message });
   }
 };
-
 
 // Explore Campaigns: open/public, not applied/accepted/rejected
 exports.getExploreCampaigns = async (req, res) => {
@@ -252,18 +415,57 @@ exports.getSingleCampaign = async (req, res) => {
   }
 };
 
+// exports.applyToCampaign = async (req, res) => {
+//   try {
+//     const campaignId = req.params.campaignId;
+//     const influencerId = req.user.userId;
+
+//     // Check if the campaign exists
+//     const campaign = await Campaign.findById(campaignId);
+//     if (!campaign || campaign.status !== 'active') {
+//       return res.status(404).json({ message: 'Campaign not found or not active' });
+//     }
+
+//     // Check if already applied
+//     const existingApplication = await Application.findOne({
+//       influencer: influencerId,
+//       campaign: campaignId
+//     });
+
+//     if (existingApplication) {
+//       return res.status(400).json({ message: 'Already applied to this campaign' });
+//     }
+
+//     // Create the application
+//     const application = await Application.create({
+//       influencer: influencerId,
+//       campaign: campaignId,
+//       status: 'pending'
+//     });
+
+//     res.status(201).json({ message: 'Application submitted', application });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Failed to apply to campaign', error: err.message });
+//   }
+// };
+
+
+//  Social Account Management
+
+// Add new social account
+
 exports.applyToCampaign = async (req, res) => {
   try {
     const campaignId = req.params.campaignId;
     const influencerId = req.user.userId;
 
-    // Check if the campaign exists
+    // 1. Find campaign
     const campaign = await Campaign.findById(campaignId);
     if (!campaign || campaign.status !== 'active') {
       return res.status(404).json({ message: 'Campaign not found or not active' });
     }
 
-    // Check if already applied
+    // 2. Check if already applied (via Application model)
     const existingApplication = await Application.findOne({
       influencer: influencerId,
       campaign: campaignId
@@ -273,23 +475,33 @@ exports.applyToCampaign = async (req, res) => {
       return res.status(400).json({ message: 'Already applied to this campaign' });
     }
 
-    // Create the application
+    // 3. Create new application
     const application = await Application.create({
       influencer: influencerId,
       campaign: campaignId,
       status: 'pending'
     });
 
+    // 4. Add influencer entry to campaign
+    campaign.influencers.push({
+      userId: influencerId,
+      status: 'applied',
+      appliedAt: new Date()
+    });
+
+    // 5. Optionally add application ID to campaign.applications
+    campaign.applications.push(application._id);
+
+    await campaign.save();
+
+    // 6. Respond
     res.status(201).json({ message: 'Application submitted', application });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Failed to apply to campaign', error: err.message });
   }
 };
 
-
-//  Social Account Management
-
-// Add new social account
 exports.addSocialAccount = async (req, res) => {
   try {
     const { platform, handle, platformId } = req.body;
