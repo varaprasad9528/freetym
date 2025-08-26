@@ -49,7 +49,7 @@ export default function BrandPage() {
 
       {/* Footer */}
       <div className="[&_*]:pt-0">
-        <Footer />
+        <Footer userType="brand" />
       </div>
     </div>
   );

@@ -314,11 +314,6 @@ function PlanView({
       {plansErr && (
         <div className="text-sm text-red-600">Error: {plansErr}</div>
       )}
-      {!plansLoading && !plansErr && normalizedPlans.length === 0 && (
-        <div className="text-sm text-gray-700">
-          No plans available right now.
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left card: API first plan or default */}
