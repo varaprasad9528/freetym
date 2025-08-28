@@ -6,7 +6,7 @@ const morgan = require("morgan");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
-const app = express();
+const app = express(); // <-- app initialized first
 
 // ----- Utils / Logger -----
 const logger = require("./utils/logger");
@@ -157,4 +157,7 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-
+// Scheduled jobs
+require("./services/fetchInstagramReels");
+// (fixed extra slash)
+require("./services/fetchYoutubeReels");

@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle2, Pencil } from "lucide-react";
 
 /* ====== Config (uses env) ====== */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE.replace(/\/+$/, ""); // strip trailing slashes
 
 const ENDPOINTS = {
+  PROFILE: `${API_BASE}/api/profile`, // GET profile details
   EMAIL_SEND: `${API_BASE}/api/profile/register/email`, // POST {email}
   EMAIL_VERIFY: `${API_BASE}/api/profile/verify/email`, // PUT {email, otp}
   PHONE_SEND: `${API_BASE}/api/profile/register/phone`, // POST {phone}
@@ -41,6 +42,7 @@ export default function ContactDetailsPage() {
   const [otp, setOtp] = useState("");
 
   const [verified, setVerified] = useState({ whatsapp: false, email: false });
+  const [editMode, setEditMode] = useState({ whatsapp: false, email: false });
 
   const [sending, setSending] = useState({ email: false, whatsapp: false });
   const [verifying, setVerifying] = useState(false);
@@ -53,7 +55,6 @@ export default function ContactDetailsPage() {
   const isEmailValid = /^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(email.trim());
   const isPhoneValid = whatsDigits.length === 10;
 
-  // ✅ Helper to get headers with token
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return {
@@ -62,7 +63,31 @@ export default function ContactDetailsPage() {
     };
   };
 
-  // --- API calls ---
+  /* ---------------- FETCH PROFILE ON LOAD ---------------- */
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch(ENDPOINTS.PROFILE, {
+          headers: getAuthHeaders(),
+        });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j?.message || "Failed to fetch profile");
+
+        // Assume backend returns { email, phone, emailVerified, phoneVerified }
+        if (j.email) setEmail(j.email);
+        if (j.phone) setWhatsDigits(j.phone.replace(/^\+91/, "")); // strip +91 if present
+        setVerified({
+          email: !!j.emailVerified,
+          whatsapp: !!j.phoneVerified,
+        });
+      } catch (e) {
+        setErr(e.message);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  /* ---------------- API CALLS ---------------- */
   const sendEmailOtp = async () => {
     try {
       if (!isEmailValid) throw new Error("Enter a valid email");
@@ -104,6 +129,7 @@ export default function ContactDetailsPage() {
       setVerified((v) => ({ ...v, email: true }));
       setOtpMode(null);
       setOtp("");
+      setEditMode((m) => ({ ...m, email: false }));
     } catch (e) {
       setErr(e.message || "Email OTP verification failed");
     } finally {
@@ -152,6 +178,7 @@ export default function ContactDetailsPage() {
       setVerified((v) => ({ ...v, whatsapp: true }));
       setOtpMode(null);
       setOtp("");
+      setEditMode((m) => ({ ...m, whatsapp: false }));
     } catch (e) {
       setErr(e.message || "WhatsApp OTP verification failed");
     } finally {
@@ -165,6 +192,7 @@ export default function ContactDetailsPage() {
     if (otpMode === "whatsapp") return verifyWhatsappOtp();
   };
 
+  /* ---------------- RENDER ---------------- */
   return (
     <div>
       {/* Top header bar */}
@@ -204,37 +232,44 @@ export default function ContactDetailsPage() {
             >
               WhatsApp Number
             </label>
-            <div className="flex items-center">
-              <span className="px-3 py-2 border border-r-0 rounded-l-md bg-gray-100 text-sm text-gray-700 select-none">
-                +91
-              </span>
-              <input
-                id="whatsapp"
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                value={whatsDigits}
-                disabled={verified.whatsapp}
-                onChange={(e) =>
-                  setWhatsDigits(e.target.value.replace(/\D/g, ""))
-                }
-                placeholder="Enter 10-digit number"
-                className="w-full px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm"
-              />
-              {verified.whatsapp ? (
+
+            {verified.whatsapp && !editMode.whatsapp ? (
+              <div className="flex items-center">
+                <span className="px-3 py-2 border rounded-md bg-gray-100 text-sm text-gray-700">
+                  +91 {whatsDigits}
+                </span>
                 <VerifiedPill />
-              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditMode((m) => ({ ...m, whatsapp: true }))}
+                  className="ml-2 text-xs text-blue-600 flex items-center gap-1"
+                >
+                  <Pencil size={14} /> Edit
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <span className="px-3 py-2 border border-r-0 rounded-l-md bg-gray-100 text-sm text-gray-700 select-none">
+                  +91
+                </span>
+                <input
+                  id="whatsapp"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={whatsDigits}
+                  onChange={(e) =>
+                    setWhatsDigits(e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="Enter 10-digit number"
+                  className="w-full px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm"
+                />
                 <VerifyPill
                   onClick={sendWhatsappOtp}
                   loading={sending.whatsapp}
                   disabled={!isPhoneValid}
                 />
-              )}
-            </div>
-            {!verified.whatsapp && whatsDigits && !isPhoneValid && (
-              <p className="text-xs text-red-600 mt-1">
-                Enter a valid 10-digit number.
-              </p>
+              </div>
             )}
           </div>
 
@@ -243,28 +278,37 @@ export default function ContactDetailsPage() {
             <label className="block mb-1 text-sm font-semibold" htmlFor="email">
               Email
             </label>
-            <div className="flex items-center">
-              <input
-                id="email"
-                type="email"
-                value={email}
-                disabled={verified.email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
-              />
-              {verified.email ? (
+
+            {verified.email && !editMode.email ? (
+              <div className="flex items-center">
+                <span className="px-3 py-2 border rounded-md bg-gray-100 text-sm text-gray-700">
+                  {email}
+                </span>
                 <VerifiedPill />
-              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditMode((m) => ({ ...m, email: true }))}
+                  className="ml-2 text-xs text-blue-600 flex items-center gap-1"
+                >
+                  <Pencil size={14} /> Edit
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white text-sm"
+                />
                 <VerifyPill
                   onClick={sendEmailOtp}
                   loading={sending.email}
                   disabled={!isEmailValid}
                 />
-              )}
-            </div>
-            {!verified.email && email && !isEmailValid && (
-              <p className="text-xs text-red-600 mt-1">Enter a valid email.</p>
+              </div>
             )}
           </div>
 

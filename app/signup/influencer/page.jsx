@@ -52,7 +52,7 @@ export default function InfluencerPage() {
 
       {/* Footer */}
       <div className="[&_*]:pt-0">
-        <Footer />
+        <Footer userType="influencer" />
       </div>
     </div>
   );
