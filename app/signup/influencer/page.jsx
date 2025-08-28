@@ -1,6 +1,6 @@
 import Header from "@/components/Header";
-import InfluencerSignupForm from "@/components/signup/InfluencerSignup/InfluencerSignupForm";
-import CreatorFeatureSection from "@/components/signup/InfluencerSignup/CreatorFeatureSection";
+import InfluencerSignupForm from "@/components/signup/influencerSignup/InfluencerSignupForm";
+import CreatorFeatureSection from "@/components/signup/influencerSignup/CreatorFeatureSection";
 import Footer from "@/components/Footer";
 
 export default function InfluencerPage() {
