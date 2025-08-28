@@ -109,6 +109,8 @@ export default function CampaignsPage() {
   // Data
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [campaigns, setCampaigns] = useState([]);
+
   const [rows, setRows] = useState([]);
 
   // Search (top-right)
@@ -123,6 +125,7 @@ export default function CampaignsPage() {
   // Modal state (Explore card details)
   const [showModal, setShowModal] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState(null);
+  const [phase, setPhase] = useState("planning");
 
   function openModal(campaign) {
     setActiveCampaign(campaign);
@@ -182,10 +185,26 @@ export default function CampaignsPage() {
       return `/api/influencer/campaigns/explore?page=${page}&limit=${limit}`;
     if (tab === "applied")
       return `/api/influencer/campaigns/applied?page=${page}&limit=${limit}`;
-    return `/api/influencer/campaigns/my?page=${page}&limit=${limit}`;
+    return `/api/influencer/campaigns/my?page=${page}&limit=${limit}&phase=${phase}`;
   };
 
   // Fetch data
+  // ➕ add this
+  useEffect(() => {
+    async function fetchCampaigns() {
+      try {
+        const res = await fetch("/api/campaigns"); // ✏️ replace with your backend API URL
+        const data = await res.json();
+
+        setCampaigns(data.campaigns || []);
+        setTotal(data.total || 0);
+      } catch (err) {
+        console.error("Error fetching campaigns:", err);
+      }
+    }
+    fetchCampaigns();
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
@@ -222,7 +241,7 @@ export default function CampaignsPage() {
     return () => {
       ignore = true;
     };
-  }, [activeTab, page, limit, authValue]);
+  }, [activeTab, page, limit, authValue, phase]);
 
   // Helpers
   const fmtDate = (iso) => {
@@ -407,18 +426,23 @@ export default function CampaignsPage() {
           <>
             {/* small status chips row */}
             <div className="flex gap-2 mb-4 mt-4">
-              <button
-                className="text-white font-semibold py-1 px-4 rounded-full"
-                style={{ background: "#F16623" }}
-              >
-                Planning
-              </button>
-              <button className="bg-gray-100 text-gray-700 py-1 px-4 rounded-full">
-                Ongoing
-              </button>
-              <button className="bg-gray-100 text-gray-700 py-1 px-4 rounded-full">
-                Completed
-              </button>
+              {["planning", "ongoing", "completed"].map((p) => (
+                <button
+                  key={p}
+                  className={`py-1 px-4 rounded-full ${
+                    phase === p ? "text-white font-semibold" : "text-gray-700"
+                  }`}
+                  style={{
+                    background: phase === p ? "#F16623" : "#F5F5F5",
+                  }}
+                  onClick={() => {
+                    setPhase(p);
+                    setPage(1); // reset paging
+                  }}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
             </div>
 
             {/* Info cards */}
@@ -430,7 +454,9 @@ export default function CampaignsPage() {
                 <div className="text-xs text-gray-500 mb-1">
                   Active Campaigns
                 </div>
-                <div className="text-2xl font-bold">0/0</div>
+                <div className="text-2xl font-bold">
+                  {campaigns.length}/{total}
+                </div>
               </div>
               <div
                 className="bg-white rounded-md p-4 flex-1 text-center"
@@ -496,14 +522,14 @@ export default function CampaignsPage() {
                   ) : (
                     filteredMy.map((c) => (
                       <tr key={c._id} className="border-b border-[#EFEFEF]">
-                        <td className="py-2 px-3">{c.brandName || "-"}</td>
+                        <td className="py-2 px-3">
+                          {c.brand?.companyName || "-"}
+                        </td>
                         <td className="py-2 px-3">{c.title || "-"}</td>
                         <td className="py-2 px-3 capitalize">
-                          {c.collaborationStatus || "-"}
+                          {c.influencerStatus || "-"}
                         </td>
-                        <td className="py-2 px-3">
-                          {fmtDate(c.applicationDate || c.createdAt)}
-                        </td>
+                        <td className="py-2 px-3">{fmtDate(c.appliedAt)}</td>
                         <td className="py-2 px-3 capitalize">
                           {c.paymentStatus || "-"}
                         </td>
@@ -598,7 +624,7 @@ export default function CampaignsPage() {
                       // Calculate start/end for current page
                       const startIdx = (page - 1) * limit;
                       const endIdx = startIdx + limit;
-                      const data = filteredExplore.slice(startIdx, endIdx);
+                      const data = filteredExplore; // already paginated by backend
                       const toFill = Math.max(0, limit - data.length);
                       const slots = [...data, ...Array(toFill).fill(null)];
 
@@ -894,17 +920,9 @@ export default function CampaignsPage() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="font-semibold text-lg">
+                      <div className="font-semibold text-lg mt-2">
                         {activeCampaign.brandName || "Brand Name"}
                       </div>
-                      <a
-                        href={activeCampaign.website || "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm text-gray-600 underline underline-offset-2"
-                      >
-                        {activeCampaign.website || "brandwebsitelink.com"}
-                      </a>
                     </div>
                     <div className="text-[11px] text-gray-500">
                       Expires on{" "}
@@ -929,9 +947,6 @@ export default function CampaignsPage() {
               <div className="mb-2">
                 <div className="font-semibold text-xl">
                   {activeCampaign.title || "Campaign Name"}
-                </div>
-                <div className="text-gray-700 text-sm mt-1">
-                  {activeCampaign.description || "No description available."}
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -985,12 +1000,12 @@ export default function CampaignsPage() {
                 <div className="font-medium mb-2">Campaign Details</div>
                 <div className="text-sm text-gray-700 space-y-3">
                   <p>
-                    {activeCampaign.details ||
-                      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Etiam mattis eu nulla accumsan iaculis."}
+                    {activeCampaign?.description || "No description available."}
                   </p>
-                  {activeCampaign.notes && <p>{activeCampaign.notes}</p>}
+                  {activeCampaign?.notes && <p>{activeCampaign.notes}</p>}
                 </div>
               </div>
+
               {/* Footer */}
               <div className="mt-5 flex items-center justify-between text-xs text-gray-500">
                 <div>

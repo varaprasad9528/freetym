@@ -98,6 +98,104 @@ function OtpPopup({
   );
 }
 
+function SearchableSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Search location...",
+  disabled = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+
+  const filtered = options.filter((opt) =>
+    opt.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const commit = (val) => {
+    onChange({ target: { name: "location", value: val } });
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div
+      className={`relative ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+    >
+      <div
+        className={`flex items-center h-8 px-3 border rounded-[8px] text-sm bg-white ${
+          disabled ? "pointer-events-none" : "cursor-text"
+        }`}
+        onClick={() => !disabled && setOpen(true)}
+      >
+        <input
+          type="text"
+          className="w-full outline-none bg-transparent placeholder:text-gray-400"
+          placeholder={value ? value : placeholder}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => !disabled && setOpen(true)}
+          disabled={disabled}
+        />
+        {value && (
+          <button
+            type="button"
+            className="ml-2 text-gray-400 hover:text-gray-700"
+            onClick={(e) => {
+              e.stopPropagation();
+              commit("");
+            }}
+            aria-label="Clear"
+            title="Clear"
+          >
+            ×
+          </button>
+        )}
+        <span className="ml-2 pointer-events-none">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-gray-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </span>
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border rounded-[8px] shadow-lg max-h-56 overflow-auto">
+          {filtered.length ? (
+            filtered.map((opt, i) => (
+              <div
+                key={opt}
+                className={`px-3 py-2 text-sm cursor-pointer ${
+                  i === highlight ? "bg-indigo-50" : ""
+                }`}
+                onMouseEnter={() => setHighlight(i)}
+                onMouseDown={() => commit(opt)}
+              >
+                {opt}
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 export default function AgencySignupPage() {
   const [form, setForm] = useState({
     fullName: "",
@@ -126,7 +224,29 @@ export default function AgencySignupPage() {
 
   const router = useRouter();
 
-  const locations = ["Delhi", "Mumbai", "Bangalore", "Hyderabad"];
+  const locations = [
+    "Mumbai",
+    "Delhi",
+    "Bengaluru",
+    "Kolkata",
+    "Chennai",
+    "Pune",
+    "Hyderabad",
+    "Ahmedabad",
+    "Jaipur",
+    "Lucknow",
+    "Surat",
+    "Patna",
+    "Indore",
+    "Guwahati",
+    "Kochi",
+    "Gurgaon",
+    "Rajkot",
+    "Malappuram",
+    "Chandigarh",
+    "Thiruvananthapuram",
+    "Noida",
+  ];
 
   // Regex
   const nameRegex = /^[A-Za-z ]{3,35}$/;
@@ -650,20 +770,13 @@ export default function AgencySignupPage() {
 
           {/* 4) Location */}
           <div className={`mb-2 ${disabledStyle(unlock.loc)}`}>
-            <select
-              name="location"
+            <SearchableSelect
+              options={locations}
               value={form.location}
               onChange={handleChange}
-              className="w-full h-8 px-3 border rounded-[8px] text-sm"
-              disabled={!unlock.loc}
-            >
-              <option value="">Location</option>
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
+              disabled={!unlock.indLoc}
+              placeholder="Location"
+            />
           </div>
           {errors.location && (
             <p className="text-red-500 text-xs mb-2">{errors.location}</p>
