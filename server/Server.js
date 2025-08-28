@@ -81,6 +81,11 @@ app.get("/", (req, res) => {
   });
 });
 
+// Scheduled jobs
+require("./services/fetchInstagramReels");
+// (fixed extra slash)
+require("./services/fetchYoutubeReels");
+
 // ===== Routes =====
 const authRoutes = require("./routes/auth");
 app.use("/api/auth", authRoutes); // done
@@ -152,7 +157,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Scheduled jobs
-require("./services/fetchInstagramReels");
-// (fixed extra slash)
-require("./services/fetchYoutubeReels");
+

@@ -8,6 +8,9 @@ router.post('/order', auth(['influencer', 'brand']), subscriptionController.crea
 router.post('/verify', auth(['influencer', 'brand']), subscriptionController.verifyAndActivate);
 router.get('/history', auth(['influencer', 'brand']), subscriptionController.getHistory);
 router.put('/cancel/:subscriptionId', auth(['influencer', 'brand']), subscriptionController.cancelSubscription);
+router.post('/razorpay/signature',auth(['influencer', 'brand']), subscriptionController.generateRazorpaySignature);
+router.post('/checkout-url', auth(['influencer', 'brand']), subscriptionController.getCheckoutUrl);
 
+// 
 module.exports = router;
 

@@ -141,20 +141,30 @@ exports.getTrendingReels = async (req, res) => {
 
 exports.getTrending = async (req, res) => {
   try {
-    const {
+    let {
       category,
       language,
       platform,
       minFollowers,
       maxFollowers,
       accountType,
-      days = 30, // Default to last 30 days
-      limit = 20,
-      page = 1
+      days,
+      limit, 
+      page ,
     } = req.query;
-
+    
+    console.log(req.user)
+    if (days=" "){
+      days=30
+    }
+    if (limit=" "){
+      limit=20
+    }
+    if (page=" "){
+      page=1
+    }
     const queryFilter = {
-      isTrending: true
+      isTrending: true,
     };
 
     if (category) {
