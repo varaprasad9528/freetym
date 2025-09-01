@@ -4,38 +4,76 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function TestimonialSlider() {
-  const testimonials = [
+  // const testimonials = [
+  //   {
+  //     logo: "/images/logo-marriott.png",
+  //     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat.",
+  //     clientName: "Priya Desai",
+  //     position: "Marketing Lead, GlowEssence",
+  //   },
+  //   {
+  //     logo: "/images/logo-marriott.png",
+  //     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
+  //     clientName: "Rohan Mehta",
+  //     position: "CMO, FitFuel",
+  //   },
+  //   {
+  //     logo: "/images/logo-marriott.png",
+  //     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
+  //     clientName: "Sneha Kapoor",
+  //     position: "Growth Manager, StyleNest",
+  //   },
+  //   {
+  //     logo: "/images/logo-marriott.png",
+  //     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. .",
+  //     clientName: "Amit Verma",
+  //     position: "Founder, TasteBudBox",
+  //   },
+  //   {
+  //     logo: "/images/logo-marriott.png",
+  //     text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
+  //     clientName: "Nisha Rao",
+  //     position: "Performance Head, UrbanTrendz",
+  //   },
+  // ];
+const testimonials = [
     {
-      logo: "/images/logo-marriott.png",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat.",
-      clientName: "Priya Desai",
-      position: "Marketing Lead, GlowEssence",
+      logo: "/images/sootex logo icon.svg",
+      text: "From identifying the ‘right’ influencer, to managing them, to measuring results – Freetym has made our Marketing Plan much easier. Very happy to associate with Freetym.",
+      clientName: "Ganesh",
+      position: "Managing Partner, Sootex",
     },
     {
-      logo: "/images/logo-marriott.png",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
-      clientName: "Rohan Mehta",
-      position: "CMO, FitFuel",
+      logo: "/images/taaara logo icon.svg",
+      text: "Freetym influencer marketing platform makes it so easy to keep track of influencers and their engagements. With the help of detailed analytics and insights, we created better campaigns and achieved results too.",
+      clientName: "Lakshmi Sahasra",
+      position: "Marketing Head, Taaara",
     },
     {
-      logo: "/images/logo-marriott.png",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
-      clientName: "Sneha Kapoor",
-      position: "Growth Manager, StyleNest",
+      logo: "/images/Betwo logo.svg",
+      text: "Freetym is a simple and easy-to-use influencer marketing platform. It has been very helpful in planning our influencer outreach campaigns, from identifying the right influencers to campaign management and result analysis.",
+      clientName: "Krishna Chaithay",
+      position: "CEO, Betwo",
     },
     {
-      logo: "/images/logo-marriott.png",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. .",
-      clientName: "Amit Verma",
-      position: "Founder, TasteBudBox",
+      logo: "/images/tesso logo.svg",
+      text: "Freetym has been helpful for us to use a data-driven approach to identify influencers who are the right fit for handling our product in the market. We achieved our business target with the help of Freetym in a very short span.",
+      clientName: "Murali Kumaran",
+      position: "Manager, Tesso",
     },
     {
-      logo: "/images/logo-marriott.png",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas accumsan magna id pellentesque volutpat. ",
-      clientName: "Nisha Rao",
-      position: "Performance Head, UrbanTrendz",
+      logo: "/images/decodd logo.svg",
+      text: "Freetym is simply a game-changer. From campaign planning to payments, every part of the process feels efficient, secure, and user-friendly.",
+      clientName: "V Karunakaran",
+      position: "Director, Decodd",
     },
-  ];
+    {
+      logo: "/images/placeholder-user.jpg",
+      text: "As an influencer, Freetym empowered me to pitch my own creative campaign ideas directly to brands. The process was transparent, fast, and efficient, making collaborations far more rewarding and successful for both sides.",
+      clientName: "Rachana",
+      position: "Influencer",
+    },
+];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerPage = 3;

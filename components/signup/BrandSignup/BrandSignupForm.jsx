@@ -1089,7 +1089,8 @@ export default function BrandSignupPage() {
             {Array.from({ length: 5 }).map((_, i) => (
               <img
                 key={`logo1-${i}`}
-                src="/Brand-logos.png"
+                src="/brand-logos.png"
+                // src="/public/images/brand_logos.png"
                 alt="Trusted by leading Agencies"
                 className="h-12 md:h-14 object-contain block m-0 p-0"
               />

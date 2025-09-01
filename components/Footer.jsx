@@ -241,7 +241,7 @@ export default function Footer({ userType }) {
           </p>
           <p>
             Designed and developed by{" "}
-            <a href="#" className="text-blue-700 hover:underline">
+            <a href="https://navayuvabharatinfotech.com" className="text-blue-700 hover:underline" target="_blank">
               NYB Infotech LLP
             </a>
           </p>

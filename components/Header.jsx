@@ -47,7 +47,7 @@ export default function Header() {
               alt="Freetym"
               className="h-8 w-auto mr-0.5"
             />
-            <img src="/freetym_logo.svg" alt="Freetym" className="h-8 w-auto" />
+            <img src="/freeTym_logo.svg" alt="Freetym" className="h-8 w-auto" />
           </Link>
         </div>
 
