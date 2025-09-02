@@ -31,8 +31,8 @@ export default function RequestDemoModal({ open, onClose }) {
   const PUBLIC_BASE = API_BASE ? `${API_BASE}/api/public` : "/api/public";
   const DEMO_ENDPOINT = `${PUBLIC_BASE}/demo-requests`;
   // ---- Phone OTP endpoints ----
-  const PHONE_SEND_URL = `${API_BASE}/api/auth/register/phone`; // POST { phone, email }
-  const PHONE_VERIFY_URL = `${API_BASE}/api/auth/register/phone/verify`; // POST { email, phone, otp }
+  const PHONE_SEND_URL = `${API_BASE}/api/otp/send-whatsapp`; // POST { phone, email }
+  const PHONE_VERIFY_URL = `${API_BASE}/api/otp/verify-whatsapp`; // POST { email, phone, otp }
 
   const handleOverlayClick = (e) => {
     if (e.target === overlayRef.current) handleClose();
@@ -44,6 +44,7 @@ export default function RequestDemoModal({ open, onClose }) {
       autoCloseRef.current = null;
     }
     onClose?.();
+    setSuccess(false)
   };
 
   // Auto-hide success
@@ -72,14 +73,17 @@ export default function RequestDemoModal({ open, onClose }) {
     const errs = {};
     const nameTrim = form.name.trim().replace(/\s+/g, " ");
     const nameWords = nameTrim ? nameTrim.split(" ").length : 0;
-
+    const nameLetters = nameTrim.replace(/[^A-Za-z]/g, '').length;
     if (!nameTrim) {
       errs.name = "Full Name is required.";
     } else if (!/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(nameTrim)) {
       errs.name = "Name must contain letters only.";
-    } else if (nameWords < 3 || nameWords > 35) {
-      errs.name = "Name must be 3 to 35 words.";
-    }
+    }else if (nameLetters < 3 || nameLetters > 35) { // Check for letter count
+  errs.name = "Name must contain between 3 and 35 letters.";
+}
+    // } else if (nameWords < 3 || nameWords > 35) {
+    //   errs.name = "Name must be 3 to 35 words.";
+    // }
 
     if (!form.email.trim()) {
       errs.email = "Email is required.";
@@ -200,7 +204,6 @@ export default function RequestDemoModal({ open, onClose }) {
     setSubmitting(true);
     setServerError("");
     setSuccess(false);
-
     try {
       const payload = {
         name: form.name.trim().replace(/\s+/g, " "),
