@@ -230,14 +230,14 @@ export default function InfluencerSignupForm() {
   const [emailOtpVerified, setEmailOtpVerified] = useState(false);
   const [phoneOtpVerified, setPhoneOtpVerified] = useState(false);
 
-  const [showEmailOtpPopup, setShowEmailOtpPopup] = useState(false);
-  const [showPhoneOtpPopup, setShowPhoneOtpPopup] = useState(false);
   const [emailOtpTimer, setEmailOtpTimer] = useState(0);
   const [phoneOtpTimer, setPhoneOtpTimer] = useState(0);
 
   const [pwdFocused, setPwdFocused] = useState(false);
   const [openLogin, setOpenLogin] = useState(false);
-
+  const [showPasswordError, setShowPasswordError] = useState(false);
+  const [confirmPwdFocused, setConfirmPwdFocused] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const router = useRouter();
 
   const genders = ["Male", "Female", "Other"];
@@ -846,17 +846,17 @@ export default function InfluencerSignupForm() {
   // timers
   useEffect(() => {
     let id = null;
-    if (showEmailOtpPopup && emailOtpTimer > 0)
+    if (emailOtpSent && emailOtpTimer > 0)
       id = setInterval(() => setEmailOtpTimer((t) => t - 1), 1000);
     return () => clearInterval(id);
-  }, [showEmailOtpPopup, emailOtpTimer]);
+  }, [emailOtpSent, emailOtpTimer]);
 
   useEffect(() => {
     let id = null;
-    if (showPhoneOtpPopup && phoneOtpTimer > 0)
+    if (phoneOtpSent && phoneOtpTimer > 0)
       id = setInterval(() => setPhoneOtpTimer((t) => t - 1), 1000);
     return () => clearInterval(id);
-  }, [showPhoneOtpPopup, phoneOtpTimer]);
+  }, [phoneOtpSent, phoneOtpTimer]);
 
   // Clear verification errors when verified (belt & suspenders)
   useEffect(() => {
@@ -900,7 +900,7 @@ export default function InfluencerSignupForm() {
             businessEmailTaken: "Email already registered",
           }));
           setEmailOtpSent(false);
-          setShowEmailOtpPopup(false);
+          setEmailOtpTimer(60);
           return;
         }
         setErrors((e) => ({
@@ -916,7 +916,6 @@ export default function InfluencerSignupForm() {
         return rest;
       });
       setEmailOtpSent(true);
-      setShowEmailOtpPopup(true);
       setEmailOtpTimer(60);
     } catch {
       setErrors((e) => ({
@@ -981,25 +980,29 @@ export default function InfluencerSignupForm() {
             phoneTaken: "Mobile number already registered",
           }));
           setPhoneOtpSent(false);
-          setShowPhoneOtpPopup(false);
+          setPhoneOtpTimer(0);
           return;
         }
         setErrors((e) => ({
           ...e,
           phoneTaken: data?.message || "Failed to send phone OTP",
         }));
+        setPhoneOtpSent(false);
+        setPhoneOtpTimer(0);
         return;
       }
 
+      // Success: clear errors and show OTP field
       setErrors((e) => {
         const { phoneTaken, ...rest } = e;
         return rest;
       });
       setPhoneOtpSent(true);
-      setShowPhoneOtpPopup(true);
       setPhoneOtpTimer(60);
     } catch {
       setErrors((e) => ({ ...e, phoneTaken: "Failed to send phone OTP" }));
+      setPhoneOtpSent(false);
+      setPhoneOtpTimer(0);
     }
   };
 
@@ -1096,8 +1099,28 @@ export default function InfluencerSignupForm() {
         throw new Error(data.message || "Registration failed");
       }
 
-      alert("Registration successful. Please login.");
-      router.push("/login");
+      setShowSuccessPopup(true);
+      setForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        gender: "",
+        dob: "",
+        location: "",
+        language: "",
+        termsAccepted: false,
+        password: "",
+        confirmPassword: "",
+        emailOtp: "",
+        phoneOtp: "",
+      });
+      setEmailOtpSent(false);
+      setPhoneOtpSent(false);
+      setEmailOtpVerified(false);
+      setPhoneOtpVerified(false);
+      setEmailOtpTimer(0);
+      setPhoneOtpTimer(0);
+      setErrors({}); // Show success popup
     } catch (e) {
       alert(e.message || "Registration failed");
     }
@@ -1128,7 +1151,6 @@ export default function InfluencerSignupForm() {
           <h2 className="text-[#2E3192] text-[24px] font-semibold mb-6 text-left">
             Influencer sign up
           </h2>
-
           {/* Full Name */}
           <input
             type="text"
@@ -1144,7 +1166,6 @@ export default function InfluencerSignupForm() {
           {errors.fullName && (
             <p className="text-red-500 text-sm mb-2">{errors.fullName}</p>
           )}
-
           {/* Email + OTP */}
           <div className={`flex gap-2 mb-2 ${disabledStyle(unlock.email)}`}>
             <div className="flex w-full border rounded-[10px] overflow-hidden">
@@ -1188,18 +1209,56 @@ export default function InfluencerSignupForm() {
           {errors.emailOtp && (
             <p className="text-red-500 text-sm mb-2">{errors.emailOtp}</p>
           )}
-
-          <OtpPopup
-            open={showEmailOtpPopup}
-            onClose={() => setShowEmailOtpPopup(false)}
-            onVerify={verifyEmailOtp}
-            otp={form.emailOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, emailOtp: otp }))}
-            timer={emailOtpTimer}
-            onResend={resendEmailOtp}
-            type="Email"
-          />
-
+          {emailOtpSent && !emailOtpVerified && (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={6}
+                value={form.emailOtp}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    emailOtp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                  }))
+                }
+                className="w-48 border rounded px-3 py-2 text-sm" // <-- wider input
+                placeholder="Enter OTP"
+              />
+              <button
+                className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
+                onClick={verifyEmailOtp}
+                type="button"
+              >
+                Verify
+              </button>
+              {emailOtpTimer > 0 ? (
+                <span className="text-gray-500 text-sm">
+                  Resend in {emailOtpTimer}s
+                </span>
+              ) : (
+                <button
+                  className="text-blue-600 underline text-sm"
+                  onClick={resendEmailOtp}
+                  type="button"
+                >
+                  Resend OTP
+                </button>
+              )}
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-1 rounded text-sm"
+                type="button"
+                onClick={() => {
+                  setEmailOtpSent(false);
+                  setForm((f) => ({ ...f, emailOtp: "" }));
+                  setEmailOtpTimer(0);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
           {/* Phone +91 + OTP */}
           <div className={`flex gap-2 mb-2 ${disabledStyle(unlock.phone)}`}>
             <div className="flex w-full border rounded-[10px] overflow-hidden">
@@ -1248,18 +1307,56 @@ export default function InfluencerSignupForm() {
           {errors.phoneOtp && (
             <p className="text-red-500 text-sm mb-2">{errors.phoneOtp}</p>
           )}
-
-          <OtpPopup
-            open={showPhoneOtpPopup}
-            onClose={() => setShowPhoneOtpPopup(false)}
-            onVerify={verifyPhoneOtp}
-            otp={form.phoneOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
-            timer={phoneOtpTimer}
-            onResend={resendPhoneOtp}
-            type="Phone"
-          />
-
+          {phoneOtpSent && !phoneOtpVerified && (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={6}
+                value={form.phoneOtp}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    phoneOtp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                  }))
+                }
+                className="w-48 border rounded px-3 py-2 text-sm" // <-- wider input
+                placeholder="Enter OTP"
+              />
+              <button
+                className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
+                onClick={verifyPhoneOtp}
+                type="button"
+              >
+                Verify
+              </button>
+              {phoneOtpTimer > 0 ? (
+                <span className="text-gray-500 text-sm">
+                  Resend in {phoneOtpTimer}s
+                </span>
+              ) : (
+                <button
+                  className="text-blue-600 underline text-sm"
+                  onClick={resendPhoneOtp}
+                  type="button"
+                >
+                  Resend OTP
+                </button>
+              )}
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-1 rounded text-sm"
+                type="button"
+                onClick={() => {
+                  setPhoneOtpSent(false);
+                  setForm((f) => ({ ...f, phoneOtp: "" }));
+                  setPhoneOtpTimer(0);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
           {/* Gender + Date of Birth */}
           <div className={`flex gap-4 mb-1 ${disabledStyle(unlock.genderDob)}`}>
             <select
@@ -1294,7 +1391,6 @@ export default function InfluencerSignupForm() {
               />
             </div>
           </div>
-
           {(errors.gender || errors.dob) && (
             <div className="mb-2">
               {errors.gender && (
@@ -1305,7 +1401,6 @@ export default function InfluencerSignupForm() {
               )}
             </div>
           )}
-
           {/* Location + Language */}
           <div className={`flex gap-4 mb-2 ${disabledStyle(unlock.locLang)}`}>
             <div className="w-1/2">
@@ -1332,7 +1427,6 @@ export default function InfluencerSignupForm() {
               />
             </div>
           </div>
-
           {(errors.location || errors.language) && (
             <div className="mb-2">
               {errors.location && (
@@ -1343,7 +1437,6 @@ export default function InfluencerSignupForm() {
               )}
             </div>
           )}
-
           {/* Password */}
           <div className={`relative ${disabledStyle(unlock.password)}`}>
             <input
@@ -1351,96 +1444,27 @@ export default function InfluencerSignupForm() {
               name="password"
               value={form.password}
               onChange={handleChange}
-              onFocus={() => setPwdFocused(true)}
-              onBlur={() => setPwdFocused(false)}
               placeholder="Password"
               className={`w-full h-9 px-3 mb-1 border rounded-[10px] text-sm ${disabledStyle(
                 unlock.password
               )}`}
               disabled={!unlock.password}
             />
-            {pwdFocused && unlock.password && (
-              <div className="absolute left-0 top-[42px] z-10 w-[min(520px,90vw)] bg-white rounded-[10px] border shadow-lg p-3 text-xs text-gray-800">
-                <div className="font-medium mb-1">Password should include:</div>
-                <ul className="space-y-1">
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasMinLen ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasMinLen ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    At least 8 characters
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasUpper ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasUpper ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One uppercase (A–Z)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasLower ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasLower ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One lowercase (a–z)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasNumber ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasNumber ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One number (0–9)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasSpecial ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasSpecial ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One special (!@#$…)
-                  </li>
-                </ul>
+            {form.password && !isPasswordValid && (
+              <div className="text-xs text-gray-600 mb-2">
+                Password must be 8+ chars, include uppercase, lowercase, number
+                & special character.
               </div>
             )}
-            {!pwdFocused && (
-              <div
-                className={`text-[11px] mb-2 ${
-                  isPasswordValid ? "text-green-700" : "text-gray-500"
-                }`}
-              >
-                Must be 8+ chars with uppercase, lowercase, number & special
-                character.
+            {isPasswordValid && (
+              <div className="text-[11px] mb-2 text-green-700">
+                Password meets all requirements.
               </div>
             )}
           </div>
           {errors.password && (
             <p className="text-red-500 text-sm mb-2">{errors.password}</p>
           )}
-
           {/* Confirm Password */}
           <input
             type="password"
@@ -1458,7 +1482,6 @@ export default function InfluencerSignupForm() {
               {errors.confirmPassword}
             </p>
           )}
-
           {/* Terms */}
           <div
             className={`flex justify-center items-center gap-2 mb-4 ${disabledStyle(
@@ -1488,7 +1511,6 @@ export default function InfluencerSignupForm() {
               {errors.termsAccepted}
             </p>
           )}
-
           {/* Submit */}
           <button
             type="submit"
@@ -1497,7 +1519,6 @@ export default function InfluencerSignupForm() {
           >
             Create Free Account
           </button>
-
           <p className="text-center text-sm mt-4">
             Already have an Account?{" "}
             <a
@@ -1535,6 +1556,28 @@ export default function InfluencerSignupForm() {
             <li>✅ 100% transparent.</li>
           </ul>
         </div>
+
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 shadow-lg flex flex-col items-center">
+              <h2 className="text-2xl font-semibold mb-4 text-green-700">
+                Account Created!
+              </h2>
+              <p className="mb-6 text-gray-700 text-center">
+                Your account is successfully created.
+              </p>
+              <button
+                className="bg-[#2E3192] text-white px-6 py-2 rounded font-medium"
+                onClick={() => {
+                  setShowSuccessPopup(false);
+                  setOpenLogin(true);
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
 
         <style jsx>{`
           input.pretty-date {
