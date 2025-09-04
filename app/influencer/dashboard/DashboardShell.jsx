@@ -69,7 +69,7 @@ export default function DashboardShell({ children }) {
           <div>
             <div className="h-16 flex items-center justify-center">
               <img
-                src="/freetym_logo.svg"
+                src="/freeTym_logo.svg"
                 alt="Freetym Logo"
                 className="h-10 mb-4"
               />

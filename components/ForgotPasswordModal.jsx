@@ -141,7 +141,7 @@ export default function ForgotPasswordModal({ open, onClose }) {
 
     try {
       setLoading(true);
-      const res = await fetch(API("/api/auth/forgot-password"), {
+      const res = await fetch(API("/api/auth/reset-password"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email,

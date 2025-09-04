@@ -139,7 +139,7 @@ export default function ProfileLayout({ children }) {
                 className="inline-flex"
               >
                 <img
-                  src="/freetym_logo.svg"
+                  src="/freeTym_logo.svg"
                   alt="Freetym Logo"
                   className="h-10 mb-4"
                 />

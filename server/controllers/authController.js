@@ -823,15 +823,16 @@ exports.resetPassword = async (req, res) => {
         .status(400)
         .json({ message: "Invalid OTP format. It must be a 6-digit number." });
     }
-    // validating the password 1 Caps 1numeric and 1 special character 
-    if (!isValidPassword(password)) {
+    // vaidating the password 1 Caps 1numeric and 1 special character 
+    // console.log(isValidPassword(password))
+    if (!isValidPassword(newPassword)) {
       return res.status(400).json({
         message:
           "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.",
       });
     }
     // validating the password 1 Caps 1numeric and 1 special character 
-    const { isValid, errors } = validatePassword(password);
+    const { isValid, errors } = validatePassword(newPassword);
     if (!isValid) {
       return res.status(400).json({
         message: "Password does not meet the criteria.",
@@ -841,7 +842,6 @@ exports.resetPassword = async (req, res) => {
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match." });
     }
-
     const record = await Otp.findOne({
       email,
       otp,
@@ -853,9 +853,7 @@ exports.resetPassword = async (req, res) => {
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await User.updateOne({ email }, { $set: { password: hashed } });
-
     await Otp.deleteMany({ email, type: "reset" });
-
     res.json({
       message: "Password has been reset. Please login with your new password.",
     });
@@ -865,6 +863,5 @@ exports.resetPassword = async (req, res) => {
       .json({ message: "Error resetting password", error: err.message });
   }
 };
-
 
 
