@@ -63,7 +63,7 @@ export default function Footer({ userType }) {
         <div className="w-full flex flex-col lg:flex-row justify-between gap-16 mb-12">
           {/* Logo + socials */}
           <div className="flex flex-col items-center lg:items-start">
-            <img src="/freetym_logo.svg" alt="Freetym" className="h-14 mb-4" />
+            <img src="/freeTym_logo.svg" alt="Freetym" className="h-14 mb-4" />
             <div className="flex justify-between w-[220px]">
               <a
                 href="https://www.instagram.com/freetymofficial/"

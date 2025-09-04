@@ -97,12 +97,30 @@ const fetchYouTubeReels = async () => {
 
     console.log(`[CRON] Done fetching YouTube reels at ${new Date().toISOString()}`);
 
+  // } catch (error) {
+  // if (error.response) {
+  //   console.error('[CRON] YouTube fetch error:', {
+  //     status: error.response.status,
+  //     data: error.response.data
+  //   });
+  // } else {
+  //   console.error('[CRON] YouTube fetch error:', error.message);
+  // }
   } catch (error) {
+  if (error.response) {
+    console.error('[CRON] YouTube fetch error:', {
+      status: error.response.status,
+      data: error.response.data
+    });
+  } else {
     console.error('[CRON] YouTube fetch error:', error.message);
   }
+}
+
 };
 
 // Schedule at 3:00 AM daily
-cron.schedule('0 3 * * *', fetchYouTubeReels);
-
+// cron.schedule('0 3 * * *', fetchYouTubeReels);
+cron.schedule('33 22 * * *', fetchYouTubeReels);
+// 30 22
 module.exports = fetchYouTubeReels;

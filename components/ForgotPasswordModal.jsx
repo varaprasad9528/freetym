@@ -1,6 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import LoginModal from "@/components/LoginModal";
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+const API = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 
 export default function ForgotPasswordModal({ open, onClose }) {
   const router = useRouter();
@@ -19,7 +23,7 @@ export default function ForgotPasswordModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [info, setInfo] = useState(""); // success/info messages
-
+  const [openLogin, setOpenLogin] = useState(false);
   // validation
   const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,}$/;
   const isEmailValid = emailRegex.test(email.trim());
@@ -72,12 +76,16 @@ export default function ForgotPasswordModal({ open, onClose }) {
 
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
+      // const res = await fetch("/api/auth/forgot-password", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ email }),
+      // });
+       const res = await fetch(API("/api/auth/forgot-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -105,11 +113,11 @@ export default function ForgotPasswordModal({ open, onClose }) {
     setInfo("");
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const res = await fetch(API("/api/auth/forgot-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -133,16 +141,24 @@ export default function ForgotPasswordModal({ open, onClose }) {
 
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
+      const res = await fetch(API("/api/auth/forgot-password"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email,
           otp,
           newPassword: newPwd,
-          confirmPassword: confirmPwd,
-        }),
-      });
+          confirmPassword: confirmPwd, }),
+    });
+      // const res = await fetch("/api/auth/reset-password", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({
+      //     email,
+      //     otp,
+      //     newPassword: newPwd,
+      //     confirmPassword: confirmPwd,
+      //   }),
+      // });
 
       const data = await res.json().catch(() => ({}));
 
@@ -157,7 +173,8 @@ export default function ForgotPasswordModal({ open, onClose }) {
       setInfo(data?.message || "Password reset successful.");
       setTimeout(() => {
         onClose?.();
-        router.push("/login"); // adjust if your login route differs
+        setOpenLogin(true)
+        // router.push("/login"); // adjust if your login route differs
       }, 900);
     } catch {
       setErr("Network error. Please try again.");
@@ -168,6 +185,7 @@ export default function ForgotPasswordModal({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[60]">
+      <LoginModal open={openLogin} onClose={() => setOpenLogin(false)} />
       <div className="bg-[#FFF9F4] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.25)] border border-gray-200 p-8 min-w-[360px] max-w-[95vw] relative">
         {/* Close */}
         <button

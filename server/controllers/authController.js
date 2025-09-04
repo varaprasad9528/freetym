@@ -223,7 +223,7 @@ exports.verifyEmailOtp = async (req, res) => {
       type: "email",
       expiresAt: { $gt: new Date() },
     });
-    
+    console.log(record)
     if (!record) {
       return res.status(400).json({ message: "Invalid or expired OTP." });
     }
@@ -240,7 +240,7 @@ exports.verifyEmailOtp = async (req, res) => {
       const newEntry = new Enquiry({
         name,
         email,
-        role,
+        role:"agency",
         status: "new",
       });
       await newEntry.save();
