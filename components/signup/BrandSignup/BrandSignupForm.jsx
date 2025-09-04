@@ -17,54 +17,6 @@ async function readJson(res) {
   }
 }
 
-// Shared OTP popup
-function OtpPopup({
-  open,
-  onClose,
-  onVerify,
-  otp,
-  setOtp,
-  timer,
-  onResend,
-  type,
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
-        <h3 className="text-lg font-semibold mb-2">Enter {type} OTP</h3>
-        <input
-          type="text"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          className="w-full border rounded px-3 py-2 mb-4"
-          placeholder="Enter OTP"
-        />
-        <div className="flex justify-between items-center mb-4">
-          <button
-            className="bg-blue-600 text-white px-4 py-1 rounded"
-            onClick={onVerify}
-          >
-            Verify
-          </button>
-          <button className="text-gray-500 underline" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-        <div className="text-sm text-gray-700 flex items-center justify-between">
-          {timer > 0 ? (
-            <span>Resend in {timer}s</span>
-          ) : (
-            <button className="text-blue-600 underline" onClick={onResend}>
-              Resend OTP
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const testimonials = [
   {
     text: "Freetym delivers clear, transparent results, and is highly recommended!",
@@ -196,12 +148,13 @@ function SearchableSelect({
     </div>
   );
 }
+
 export default function BrandSignupPage() {
   const [form, setForm] = useState({
     fullName: "",
     companyName: "",
     businessEmail: "",
-    phone: "", // store only 10 digits
+    phone: "",
     industryType: "",
     location: "",
     termsAccepted: false,
@@ -216,12 +169,11 @@ export default function BrandSignupPage() {
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [emailOtpVerified, setEmailOtpVerified] = useState(false);
   const [phoneOtpVerified, setPhoneOtpVerified] = useState(false);
-  const [showEmailOtpPopup, setShowEmailOtpPopup] = useState(false);
-  const [showPhoneOtpPopup, setShowPhoneOtpPopup] = useState(false);
   const [emailOtpTimer, setEmailOtpTimer] = useState(0);
   const [phoneOtpTimer, setPhoneOtpTimer] = useState(0);
   const [pwdFocused, setPwdFocused] = useState(false);
   const [openLogin, setOpenLogin] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const router = useRouter();
 
@@ -292,6 +244,20 @@ export default function BrandSignupPage() {
   };
 
   // Timers
+  useEffect(() => {
+    if (emailOtpSent && emailOtpTimer > 0) {
+      const timer = setTimeout(() => setEmailOtpTimer((t) => t - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailOtpSent, emailOtpTimer]);
+
+  useEffect(() => {
+    if (phoneOtpSent && phoneOtpTimer > 0) {
+      const timer = setTimeout(() => setPhoneOtpTimer((t) => t - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneOtpSent, phoneOtpTimer]);
+
   useEffect(() => {
     if (emailOtpVerified) {
       setErrors((er) => {
@@ -394,7 +360,6 @@ export default function BrandSignupPage() {
             businessEmailTaken: "Email already registered",
           }));
           setEmailOtpSent(false);
-          setShowEmailOtpPopup(false);
           return;
         }
         setErrors((e) => ({
@@ -404,13 +369,11 @@ export default function BrandSignupPage() {
         return;
       }
 
-      // success
       setErrors((e) => {
         const { businessEmailTaken, ...rest } = e;
         return rest;
       });
       setEmailOtpSent(true);
-      setShowEmailOtpPopup(true);
       setEmailOtpTimer(60);
     } catch {
       setErrors((e) => ({
@@ -421,8 +384,6 @@ export default function BrandSignupPage() {
   };
   const resendEmailOtp = async () => sendEmailOtp();
 
-  // POST /api/auth/register/email/verify  { name, role, otp, email }
-  // EMAIL VERIFY
   const verifyEmailOtp = async () => {
     try {
       const res = await fetch(API("/api/auth/register/email/verify"), {
@@ -441,9 +402,7 @@ export default function BrandSignupPage() {
         throw new Error(data.message || "Invalid OTP");
 
       setEmailOtpVerified(true);
-      setShowEmailOtpPopup(false);
 
-      // ⬅️ clear any previous “Please verify your email OTP”
       setErrors((er) => {
         const { emailOtp, ...rest } = er;
         return rest;
@@ -456,7 +415,6 @@ export default function BrandSignupPage() {
     }
   };
 
-  // PHONE VERIFY
   const verifyPhoneOtp = async () => {
     try {
       const res = await fetch(API("/api/auth/register/phone/verify"), {
@@ -471,9 +429,7 @@ export default function BrandSignupPage() {
       if (!res.ok) throw new Error("Invalid OTP");
 
       setPhoneOtpVerified(true);
-      setShowPhoneOtpPopup(false);
 
-      // ⬅️ clear any previous “Please verify your phone OTP”
       setErrors((er) => {
         const { phoneOtp, ...rest } = er;
         return rest;
@@ -509,7 +465,6 @@ export default function BrandSignupPage() {
             phoneTaken: "Mobile number already registered",
           }));
           setPhoneOtpSent(false);
-          setShowPhoneOtpPopup(false);
           return;
         }
         setErrors((e) => ({
@@ -524,7 +479,6 @@ export default function BrandSignupPage() {
         return rest;
       });
       setPhoneOtpSent(true);
-      setShowPhoneOtpPopup(true);
       setPhoneOtpTimer(60);
     } catch {
       setErrors((e) => ({
@@ -547,7 +501,7 @@ export default function BrandSignupPage() {
         confirmPassword: form.confirmPassword,
         industryType: form.industryType,
         location: form.location,
-        termsAccepted: String(!!form.termsAccepted), // "true" / "false"
+        termsAccepted: String(!!form.termsAccepted),
       };
 
       const res = await fetch(API("/api/auth/register/brand"), {
@@ -561,7 +515,27 @@ export default function BrandSignupPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      router.push("/login");
+      setShowSuccessPopup(true);
+      setForm({
+        fullName: "",
+        companyName: "",
+        businessEmail: "",
+        phone: "",
+        industryType: "",
+        location: "",
+        termsAccepted: false,
+        password: "",
+        confirmPassword: "",
+        emailOtp: "",
+        phoneOtp: "",
+      });
+      setEmailOtpSent(false);
+      setPhoneOtpSent(false);
+      setEmailOtpVerified(false);
+      setPhoneOtpVerified(false);
+      setEmailOtpTimer(0);
+      setPhoneOtpTimer(0);
+      setErrors({});
     } catch (e) {
       setErrors((er) => ({
         ...er,
@@ -703,17 +677,56 @@ export default function BrandSignupPage() {
           {errors.emailOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.emailOtp}</p>
           )}
-
-          <OtpPopup
-            open={showEmailOtpPopup}
-            onClose={() => setShowEmailOtpPopup(false)}
-            onVerify={verifyEmailOtp}
-            otp={form.emailOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, emailOtp: otp }))}
-            timer={emailOtpTimer}
-            onResend={resendEmailOtp}
-            type="Email"
-          />
+          {/* Inline OTP input for email */}
+          {emailOtpSent && !emailOtpVerified && (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={6}
+                value={form.emailOtp}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    emailOtp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                  }))
+                }
+                className="w-48 border rounded px-3 py-2 text-sm"
+                placeholder="Enter OTP"
+              />
+              <button
+                className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
+                onClick={verifyEmailOtp}
+                type="button"
+              >
+                Verify
+              </button>
+              {emailOtpTimer > 0 ? (
+                <span className="text-gray-500 text-sm">
+                  Resend in {emailOtpTimer}s
+                </span>
+              ) : (
+                <button
+                  className="text-blue-600 underline text-sm"
+                  onClick={resendEmailOtp}
+                  type="button"
+                >
+                  Resend OTP
+                </button>
+              )}
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-1 rounded text-sm"
+                type="button"
+                onClick={() => {
+                  setEmailOtpSent(false);
+                  setForm((f) => ({ ...f, emailOtp: "" }));
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           {/* 3) Phone + OTP with +91 */}
           <div className={`flex gap-2 mb-2 ${disabledStyle(unlock.phone)}`}>
@@ -763,17 +776,56 @@ export default function BrandSignupPage() {
           {errors.phoneOtp && (
             <p className="text-red-500 text-xs mb-2">{errors.phoneOtp}</p>
           )}
-
-          <OtpPopup
-            open={showPhoneOtpPopup}
-            onClose={() => setShowPhoneOtpPopup(false)}
-            onVerify={verifyPhoneOtp}
-            otp={form.phoneOtp}
-            setOtp={(otp) => setForm((f) => ({ ...f, phoneOtp: otp }))}
-            timer={phoneOtpTimer}
-            onResend={resendPhoneOtp}
-            type="Phone"
-          />
+          {/* Inline OTP input for phone */}
+          {phoneOtpSent && !phoneOtpVerified && (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={6}
+                value={form.phoneOtp}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    phoneOtp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                  }))
+                }
+                className="w-48 border rounded px-3 py-2 text-sm"
+                placeholder="Enter OTP"
+              />
+              <button
+                className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
+                onClick={verifyPhoneOtp}
+                type="button"
+              >
+                Verify
+              </button>
+              {phoneOtpTimer > 0 ? (
+                <span className="text-gray-500 text-sm">
+                  Resend in {phoneOtpTimer}s
+                </span>
+              ) : (
+                <button
+                  className="text-blue-600 underline text-sm"
+                  onClick={resendPhoneOtp}
+                  type="button"
+                >
+                  Resend OTP
+                </button>
+              )}
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-1 rounded text-sm"
+                type="button"
+                onClick={() => {
+                  setPhoneOtpSent(false);
+                  setForm((f) => ({ ...f, phoneOtp: "" }));
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           {/* 4) Industry + Location */}
           <div className={`flex gap-2 mb-2 ${disabledStyle(unlock.indLoc)}`}>
@@ -817,89 +869,21 @@ export default function BrandSignupPage() {
               name="password"
               value={form.password}
               onChange={handleChange}
-              onFocus={() => setPwdFocused(true)}
-              onBlur={() => setPwdFocused(false)}
               placeholder="Password"
               className={`w-full h-8 px-3 mb-1 border rounded-[8px] text-sm ${disabledStyle(
                 unlock.password
               )}`}
               disabled={!unlock.password}
             />
-            {pwdFocused && unlock.password && (
-              <div className="absolute left-0 top[38px] md:top-[38px] z-10 w-[min(520px,90vw)] bg-white rounded-[10px] border shadow-lg p-3 text-xs text-gray-800">
-                <div className="font-medium mb-1">Password should include:</div>
-                <ul className="space-y-1">
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasMinLen ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasMinLen ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    At least 8 characters
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasUpper ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasUpper ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One uppercase (A–Z)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasLower ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasLower ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One lowercase (a–z)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasNumber ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasNumber ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One number (0–9)
-                  </li>
-                  <li
-                    className={`flex items-center gap-2 ${
-                      hasSpecial ? "text-green-700" : ""
-                    }`}
-                  >
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        hasSpecial ? "bg-green-600" : "bg-gray-400"
-                      }`}
-                    />
-                    One special (!@#$…)
-                  </li>
-                </ul>
+            {form.password && !isPasswordValid && (
+              <div className="text-xs text-gray-600 mb-2">
+                Password must be 8+ chars, include uppercase, lowercase, number
+                & special character.
               </div>
             )}
-            {!pwdFocused && (
-              <div
-                className={`text-[11px] mb-2 ${
-                  isPasswordValid ? "text-green-700" : "text-gray-600"
-                }`}
-              >
-                Must be 8+ chars with uppercase, lowercase, number & special
-                character.
+            {isPasswordValid && (
+              <div className="text-[11px] mb-2 text-green-700">
+                Password meets all requirements.
               </div>
             )}
           </div>
@@ -979,6 +963,29 @@ export default function BrandSignupPage() {
               Sign In
             </a>
           </p>
+
+          {/* Success Popup */}
+          {showSuccessPopup && (
+            <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-8 shadow-lg flex flex-col items-center">
+                <h2 className="text-2xl font-semibold mb-4 text-green-700">
+                  Account Created!
+                </h2>
+                <p className="mb-6 text-gray-700 text-center">
+                  Your account is successfully created.
+                </p>
+                <button
+                  className="bg-[#2E3192] text-white px-6 py-2 rounded font-medium"
+                  onClick={() => {
+                    setShowSuccessPopup(false);
+                    setOpenLogin(true);
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          )}
         </form>
 
         {/* Right - Features + Testimonials */}
@@ -1090,7 +1097,6 @@ export default function BrandSignupPage() {
               <img
                 key={`logo1-${i}`}
                 src="/brand-logos.png"
-                // src="/public/images/brand_logos.png"
                 alt="Trusted by leading Agencies"
                 className="h-12 md:h-14 object-contain block m-0 p-0"
               />
