@@ -43,7 +43,10 @@ export default function ReelsInspirationPage() {
     setErr("");
     try {
       const res = await fetch(
-        `${API_BASE}/api/reels/trending?page=${trendPage}&limit=${trendLimit}`
+        `${API_BASE}/api/reels/trending?page=${trendPage}&limit=${trendLimit}`,
+        {
+          headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        }
       );
       const json = await res.json();
       if (!res.ok || !json?.success)

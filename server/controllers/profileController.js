@@ -1,5 +1,6 @@
 const Otp = require('../models/Otp');
 const User = require('../models/User');
+const { sendOtpViaPabbly } = require('../utils/otpSender');
 const sendEmailOtp = require("../utils/sendEmailOtp");
 const sendWhatsappOtp = require("../utils/sendWhatsappOtp");
 
@@ -230,7 +231,13 @@ exports.registerEmail = async (req, res) => {
     console.log(otp)
     // Send OTP to the new email
     // await sendEmailOtp(email, otp, 'verification');
-
+    // otpType=reset,registration  channel = email,whatsapp
+      const sent = await sendOtpViaPabbly({
+        email,
+        otp,
+        otpType:"verify",
+        channel:"email"
+      });
     return res.json({ message: "OTP sent to email." });
   } catch (err) {
     return res.status(500).json({ message: "Error sending OTP", error: err.message });
@@ -329,7 +336,14 @@ exports.registerPhone = async (req, res) => {
     console.log(otp)
     // Send OTP to the new phone number (you can replace this with actual sending logic, e.g., using SMS API)
     // await sendWhatsappOtp(phone, otp);
-
+    // otpType=reset,registration  channel = email,whatsapp
+      const sent = await sendOtpViaPabbly({
+        email,
+        phone,
+        otp,
+        otpType:"verify",
+        channel:"phone"
+      });
     return res.json({ message: "OTP sent to phone number." });
   } catch (err) {
     return res.status(500).json({ message: "Error sending OTP", error: err.message });

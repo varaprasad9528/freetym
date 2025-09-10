@@ -105,12 +105,15 @@ exports.createOrder = async (req, res) => {
   try {
     const { planId } = req.body;
     const userId = req.user.userId;
+    console.log(planId)
+    console.log(userId)
 
     if (!planId) return res.status(400).json({ message: 'Plan ID is required' });
 
-    const plan = await SubscriptionPlan.findById(planId);
+    const plan = await SubscriptionPlan.findById('68abeec365f4983e609e0fba');
     if (!plan) return res.status(404).json({ message: 'Plan not found' });
-
+    console.log(plan)
+    console.log("Create order")
     // Razorpay order creation
     try {
       const order = await razorpay.orders.create({
@@ -122,7 +125,7 @@ exports.createOrder = async (req, res) => {
           userId: userId.toString()
         }
       });
-
+      console.log(order)
       res.status(200).json({ order });
     } catch (razorpayError) {
       console.error('Razorpay order creation failed:', razorpayError);
@@ -136,6 +139,26 @@ exports.createOrder = async (req, res) => {
 };
 
 
+// exports.getCheckoutUrl = (req, res) => {
+//   const { order_id } = req.body;
+
+//   if (!order_id) return res.status(400).json({ message: 'Order ID is required' });
+
+//   // Assuming your Razorpay key details are stored in environment variables
+//   const razorpayKey = process.env.RAZORPAY_KEY_ID;
+//   const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
+
+//   // Create the URL for the Razorpay checkout page
+//   const checkoutUrl = `https://checkout.razorpay.com/v1/checkout.js?order_id=${order_id}&key=${razorpayKey}`;
+
+//   res.status(200).json({
+//     message: 'Checkout URL generated successfully',
+//     checkoutUrl: checkoutUrl
+//   });
+// };
+
+
+// Controller to generate Razorpay signature
 exports.getCheckoutUrl = (req, res) => {
   const { order_id } = req.body;
 
@@ -143,7 +166,6 @@ exports.getCheckoutUrl = (req, res) => {
 
   // Assuming your Razorpay key details are stored in environment variables
   const razorpayKey = process.env.RAZORPAY_KEY_ID;
-  const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
 
   // Create the URL for the Razorpay checkout page
   const checkoutUrl = `https://checkout.razorpay.com/v1/checkout.js?order_id=${order_id}&key=${razorpayKey}`;
@@ -154,8 +176,6 @@ exports.getCheckoutUrl = (req, res) => {
   });
 };
 
-
-// Controller to generate Razorpay signature
 exports.generateRazorpaySignature = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id } = req.body;

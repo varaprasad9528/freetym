@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const sendEmailOtp = require("../utils/sendEmailOtp");
 const sendWhatsappOtp = require("../utils/sendWhatsappOtp");
 const { asyncHandler, AppError } = require("../middleware/errorHandler");
+const { sendOtpViaPabbly } = require("../utils/otpSender");
 // const axios = require('axios'); // For Pabbly WhatsApp API
 
 // generating otp 
@@ -191,6 +192,13 @@ exports.registerEmail = async (req, res) => {
     console.log(data)
     // For verification email
     await sendEmailOtp(email, otp, 'verification');
+     // otpType=reset,registration  channel = email,whatsapp
+      const sent = await sendOtpViaPabbly({
+        email,
+        otp,
+        otpType:"registration",
+        channel:"email"
+      });
     console.log(otp);
     res.json({ message: "OTP sent to email." });
   } catch (err) {
@@ -352,6 +360,13 @@ exports.registerPhone = async (req, res) => {
 
     try {
       await sendWhatsappOtp(phone, otp);
+       // otpType=reset,registration  channel = email,whatsapp
+        const sent = await sendOtpViaPabbly({
+          phone,
+          otp,
+          otpType:"registration",
+          channel:"whatsapp"
+        });
     } catch (whatsappError) {
       console.log("WhatsApp OTP service unavailable, using console fallback");
       console.log(`WhatsApp OTP for ${phone}: ${otp}`);
@@ -798,6 +813,13 @@ exports.forgotPassword = async (req, res) => {
     // await sendEmailOtp(email, otp);
     // For forgot password email
     await sendEmailOtp(user.email, otp, 'reset');
+    // otpType=reset,registration  channel = email,whatsapp
+      const sent = await sendOtpViaPabbly({
+        email,
+        otp,
+        otpType:"reset",
+        channel:"email"
+      });
     res.json({ message: "Password reset OTP sent to your email." });
   } catch (err) {
     res

@@ -1,5 +1,8 @@
 const Otp = require('../models/Otp');
+const { sendOtpViaPabbly } = require('../utils/otpSender');
 const sendEmailOtp = require('../utils/sendEmailOtp');
+// const { sendOtpViaPabbly } = require('./otpSender');
+// const =require('../utils/otpSender')
 const sendWhatsappOtp = require('../utils/sendWhatsappOtp');
 
 function generateOtp() {
@@ -55,7 +58,23 @@ exports.sendEmailOtp = async (req, res) => {
   const otp = generateOtp();
   await Otp.deleteMany({ email, type: 'email' });
   await Otp.create({ email, otp, type: 'email', expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+  // sendOtpViaPabbly
+  // otpType=reset,registration  channel = email,whatsapp
   await sendEmailOtp(email, otp);
+  // otpType=reset,registration  channel = email,whatsapp
+  const sent = await sendOtpViaPabbly({
+    email,
+    phone,
+    otp,
+    otpType,
+    channel:"email"
+  });
+
+  if (sent) {
+    res.status(200).json({ message: 'OTP sent successfully', otp }); // Don't send OTP in prod!
+  } else {
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
   res.json({ message: 'OTP sent to email.' });
 };
 
@@ -69,6 +88,13 @@ exports.sendWhatsappOtp = async (req, res) => {
   await Otp.deleteMany({ phone, type: 'whatsapp' });
   await Otp.create({ phone, otp, type: 'whatsapp', expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
   // await sendWhatsappOtp(phone, otp);
+  // otpType=reset,registration  channel = email,whatsapp
+  const sent = await sendOtpViaPabbly({
+    phone,
+    otp,
+    otpType:"verification",
+    channel:"whatsapp"
+  });
   console.log(otp)
   res.json({ message: 'OTP sent to WhatsApp.' });
 };

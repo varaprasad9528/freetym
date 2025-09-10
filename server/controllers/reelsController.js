@@ -240,7 +240,19 @@ exports.getTrending = async (req, res) => {
     ];
 
     const reels = await Reel.aggregate(pipeline);
+    const userId = req.user.userId;
+  const processedReels = reels.map(reel => {
+  const isSaved = reel.savedBy?.some(id => id.toString() === userId) || false;
 
+  // Optionally: remove savedBy array to reduce payload
+  const { savedBy, ...rest } = reel;
+
+  return {
+    ...rest,
+    saved: isSaved
+  };
+});
+// console.log(processedReels)
     // Count total matching documents for pagination
     const countPipeline = [
       { $match: matchStage },
@@ -255,7 +267,7 @@ exports.getTrending = async (req, res) => {
 
     res.json({
       success: true,
-      data: reels,
+      data: processedReels,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -319,24 +331,67 @@ exports.toggleSaveReel = async (req, res) => {
 };
 
 // Get saved reels for user
+// exports.getSavedReels = async (req, res) => {
+//   try {
+//     const userId = req.user.userId;
+//     const { limit = 20, page = 1 } = req.query;
+    
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+//     const reels = await Reel.find({ savedBy: userId })
+//       .populate('influencer', 'name instagram youtube')
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(parseInt(limit));
+    
+//     const total = await Reel.countDocuments({ savedBy: userId });
+    
+//     res.json({
+//       success: true,
+//       data: reels,
+//       pagination: {
+//         page: parseInt(page),
+//         limit: parseInt(limit),
+//         total,
+//         pages: Math.ceil(total / parseInt(limit))
+//       }
+//     });
+    
+//   } catch (error) {
+//     // logger.error('Get saved reels error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching saved reels',
+//       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//     });
+//   }
+// };
 exports.getSavedReels = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { limit = 20, page = 1 } = req.query;
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const reels = await Reel.find({ savedBy: userId })
       .populate('influencer', 'name instagram youtube')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     const total = await Reel.countDocuments({ savedBy: userId });
-    
+
+    // Add saved: true flag and exclude savedBy field
+    const processedReels = reels.map(reel => {
+      const reelObj = reel.toObject();  // convert Mongoose doc to plain object
+      delete reelObj.savedBy;           // optionally remove savedBy to reduce payload
+      reelObj.saved = true;             // mark as saved
+      return reelObj;
+    });
+
     res.json({
       success: true,
-      data: reels,
+      data: processedReels,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -344,9 +399,8 @@ exports.getSavedReels = async (req, res) => {
         pages: Math.ceil(total / parseInt(limit))
       }
     });
-    
+
   } catch (error) {
-    // logger.error('Get saved reels error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching saved reels',
